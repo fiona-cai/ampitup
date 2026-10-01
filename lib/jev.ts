@@ -63,9 +63,12 @@ function alreadyPaidReason(text: string): string {
   return "Already paid, no spend expected";
 }
 
-export function jevGate(event: CalendarEvent): JevDecision {
+export function jevGate(
+  event: CalendarEvent,
+  options: { companyDomain?: string; timeZone?: string } = {},
+): JevDecision {
   const text = blob(event);
-  const external = externalAttendees(event);
+  const external = externalAttendees(event, options.companyDomain);
   const signals: string[] = [];
 
   if (ALREADY_PAID.test(text)) {
@@ -119,7 +122,7 @@ export function jevGate(event: CalendarEvent): JevDecision {
   if (external.length > 0) signals.push(`${external.length} external`);
   else signals.push("internal only");
 
-  const slot = mealSlot(event.start);
+  const slot = mealSlot(event.start, options.timeZone);
   if (slot) signals.push(`${slot} time`);
   if (hasPlace(event)) signals.push("has a place");
   if (VAGUE.test(text)) signals.push("vague title");

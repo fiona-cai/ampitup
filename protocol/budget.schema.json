@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ampitup:budget-protocol:1.0",
+  "title": "Allot event and budget protocol v1.0",
+  "$ref": "#/$defs/snapshot",
+  "$defs": {
+    "nullableText": {"type": ["string", "null"], "maxLength": 2000},
+    "instant": {"type": "string", "format": "date-time", "pattern": "(Z|[+-][0-9]{2}:[0-9]{2})$"},
+    "money": {"type": "integer", "minimum": 0, "maximum": 100000000},
+    "nullableMoney": {"type": ["integer", "null"], "minimum": 0, "maximum": 100000000},
+    "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+    "category": {"enum": ["meal", "coffee", "transport", "lodging", "admission", "supplies", "other"]},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provider", "collectionId", "recordId", "updatedAt", "url"],
+      "properties": {
+        "provider": {"type": "string", "minLength": 1, "maxLength": 80, "description": "google_calendar, notion, outlook, manual, or another adapter name"},
+        "collectionId": {"type": "string", "minLength": 1, "maxLength": 200},
+        "recordId": {"type": "string", "minLength": 1, "maxLength": 200},
+        "updatedAt": {"$ref": "#/$defs/instant"},
+        "url": {"type": ["string", "null"], "format": "uri"}
+      }
+    },
+    "event": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "sources", "title", "description", "status", "attendance", "schedule", "purpose", "location", "participants", "expenses", "missingFields"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "sources": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source"}},
+        "title": {"type": "string", "minLength": 1, "maxLength": 240},
+        "description": {"type": ["string", "null"], "maxLength": 2000},
+        "status": {"enum": ["confirmed", "tentative", "cancelled"]},
+        "attendance": {"enum": ["accepted", "tentative", "declined", "unknown"]},
+        "schedule": {
+          "type": "object", "additionalProperties": false,
+          "required": ["start", "end", "timeZone", "allDay"],
+          "properties": {
+            "start": {"$ref": "#/$defs/instant"}, "end": {"$ref": "#/$defs/instant"},
+            "timeZone": {"type": "string", "minLength": 1}, "allDay": {"type": "boolean"}
+          }
+        },
+        "purpose": {
+          "type": "object", "additionalProperties": false,
+          "required": ["scope", "importance", "difficulty"],
+          "properties": {
+            "scope": {"enum": ["work", "personal", "unknown"]},
+            "importance": {"enum": ["low", "normal", "high", "unknown"]},
+            "difficulty": {"enum": ["low", "moderate", "high", "unknown"]}
+          }
+        },
+        "location": {
+          "type": "object", "additionalProperties": false,
+          "required": ["mode", "label", "city", "countryCode", "travelFromPreviousMinutes"],
+          "properties": {
+            "mode": {"enum": ["in_person", "virtual", "hybrid", "unknown"]},
+            "label": {"$ref": "#/$defs/nullableText"}, "city": {"$ref": "#/$defs/nullableText"},
+            "countryCode": {"type": ["string", "null"], "pattern": "^[A-Z]{2}$"},
+            "travelFromPreviousMinutes": {"type": ["integer", "null"], "minimum": 0, "maximum": 1440}
+          }
+        },
+        "participants": {
+          "type": "object", "additionalProperties": false,
+          "required": ["totalCount", "externalCount"],
+          "properties": {
+            "totalCount": {"type": ["integer", "null"], "minimum": 1, "maximum": 10000},
+            "externalCount": {"type": ["integer", "null"], "minimum": 0, "maximum": 10000}
+          }
+        },
+        "expenses": {
+          "type": ["array", "null"], "maxItems": 20,
+          "description": "null = expense facts unknown; [] = confirmed no expected expense. Coverage applies to each line separately.",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["category", "coverage", "estimatedAmountMinor", "beneficiaryCount", "notes"],
+            "properties": {
+              "category": {"$ref": "#/$defs/category"},
+              "coverage": {"enum": ["not_covered", "provided", "prepaid", "unknown"]},
+              "estimatedAmountMinor": {"$ref": "#/$defs/nullableMoney"},
+              "beneficiaryCount": {"type": ["integer", "null"], "minimum": 1, "maximum": 10000},
+              "notes": {"$ref": "#/$defs/nullableText"}
+            }
+          }
+        },
+        "missingFields": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^/"}}
+      }
+    },
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "currency", "fundingScope", "dailyLimitMinor", "weeklyLimitMinor", "monthlyLimitMinor", "categoryCapsMinor"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "currency": {"$ref": "#/$defs/currency"},
+        "fundingScope": {"const": "work"},
+        "dailyLimitMinor": {"$ref": "#/$defs/money"}, "weeklyLimitMinor": {"$ref": "#/$defs/money"},
+        "monthlyLimitMinor": {"$ref": "#/$defs/money"},
+        "categoryCapsMinor": {
+          "type": "object", "additionalProperties": false,
+          "description": "Per-event caps; these are not multiplied by participant count.",
+          "required": ["meal", "coffee", "transport", "lodging", "admission", "supplies", "other"],
+          "properties": {
+            "meal": {"$ref": "#/$defs/money"}, "coffee": {"$ref": "#/$defs/money"}, "transport": {"$ref": "#/$defs/money"},
+            "lodging": {"$ref": "#/$defs/money"}, "admission": {"$ref": "#/$defs/money"}, "supplies": {"$ref": "#/$defs/money"}, "other": {"$ref": "#/$defs/money"}
+          }
+        }
+      }
+    },
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "snapshotId", "generatedAt", "isSimulated", "subject", "window", "policy", "events"],
+      "properties": {
+        "schemaVersion": {"const": "1.0"}, "snapshotId": {"type": "string", "minLength": 1},
+        "generatedAt": {"$ref": "#/$defs/instant"}, "isSimulated": {"type": "boolean"},
+        "subject": {
+          "type": "object", "additionalProperties": false, "required": ["id", "timeZone", "homeCity"],
+          "properties": {"id": {"type": "string", "minLength": 1}, "timeZone": {"type": "string", "minLength": 1}, "homeCity": {"$ref": "#/$defs/nullableText"}}
+        },
+        "window": {
+          "type": "object", "additionalProperties": false, "required": ["start", "end"],
+          "properties": {"start": {"$ref": "#/$defs/instant"}, "end": {"$ref": "#/$defs/instant"}}
+        },
+        "policy": {"$ref": "#/$defs/policy"},
+        "events": {"type": "array", "maxItems": 10000, "items": {"$ref": "#/$defs/event"}}
+      }
+    },
+    "load": {
+      "type": "object", "additionalProperties": false,
+      "required": ["eventCount", "busyMinutes", "highDifficultyCount", "allDayCount", "complete"],
+      "properties": {
+        "eventCount": {"type": "integer", "minimum": 0}, "busyMinutes": {"type": "number", "minimum": 0},
+        "highDifficultyCount": {"type": "integer", "minimum": 0}, "allDayCount": {"type": "integer", "minimum": 0}, "complete": {"type": "boolean"}
+      }
+    },
+    "context": {
+      "type": "object", "additionalProperties": false,
+      "required": ["date", "weekStart", "durationMinutes", "day", "week", "transition", "nearMealTime"],
+      "properties": {
+        "date": {"type": "string", "format": "date"}, "weekStart": {"type": "string", "format": "date"},
+        "durationMinutes": {"type": "number", "minimum": 0},
+        "day": {"$ref": "#/$defs/load"}, "week": {"$ref": "#/$defs/load"}, "nearMealTime": {"type": "boolean"},
+        "transition": {
+          "type": "object", "additionalProperties": false,
+          "required": ["previousEventId", "gapMinutes", "travelMinutes", "timePressure"],
+          "properties": {
+            "previousEventId": {"type": ["string", "null"]}, "gapMinutes": {"type": ["number", "null"]},
+            "travelMinutes": {"type": ["integer", "null"], "minimum": 0}, "timePressure": {"type": ["boolean", "null"]}
+          }
+        }
+      }
+    },
+    "gateLabel": {"enum": ["needs_budget", "no_budget", "needs_review"]},
+    "probability": {"type": "number", "minimum": 0, "maximum": 1},
+    "gate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["label", "rawLabel", "probabilities", "confidence", "reviewReasons", "signals", "backend", "modelId"],
+      "properties": {
+        "label": {"$ref": "#/$defs/gateLabel"}, "rawLabel": {"$ref": "#/$defs/gateLabel"},
+        "probabilities": {
+          "type": "object", "additionalProperties": false, "required": ["needs_budget", "no_budget", "needs_review"],
+          "properties": {"needs_budget": {"$ref": "#/$defs/probability"}, "no_budget": {"$ref": "#/$defs/probability"}, "needs_review": {"$ref": "#/$defs/probability"}}
+        },
+        "confidence": {"$ref": "#/$defs/probability"},
+        "reviewReasons": {"type": "array", "items": {"type": "string"}}, "signals": {"type": "array", "items": {"type": "string"}},
+        "backend": {"enum": ["laya", "mock", "policy_guard"]}, "modelId": {"type": ["string", "null"]}
+      }
+    },
+    "gateRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "requestId", "event", "context", "policy"],
+      "properties": {
+        "schemaVersion": {"const": "1.0"}, "requestId": {"type": "string", "minLength": 1},
+        "event": {"$ref": "#/$defs/event"}, "context": {"$ref": "#/$defs/context"}, "policy": {"$ref": "#/$defs/policy"}
+      }
+    },
+    "pricingRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "requestId", "event", "context", "gate", "policy", "remaining"],
+      "properties": {
+        "schemaVersion": {"const": "1.0"}, "requestId": {"type": "string", "minLength": 1},
+        "event": {"$ref": "#/$defs/event"}, "context": {"$ref": "#/$defs/context"},
+        "gate": {"$ref": "#/$defs/gate"}, "policy": {"$ref": "#/$defs/policy"},
+        "remaining": {
+          "type": "object", "additionalProperties": false, "required": ["dailyMinor", "weeklyMinor", "monthlyMinor"],
+          "properties": {"dailyMinor": {"$ref": "#/$defs/money"}, "weeklyMinor": {"$ref": "#/$defs/money"}, "monthlyMinor": {"$ref": "#/$defs/money"}}
+        }
+      }
+    },
+    "budgetProposal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["eventId", "currency", "amountMinor", "lineItems", "reason", "questions"],
+      "properties": {
+        "eventId": {"type": "string", "minLength": 1}, "currency": {"$ref": "#/$defs/currency"},
+        "amountMinor": {"$ref": "#/$defs/money"},
+        "lineItems": {
+          "type": "array", "maxItems": 20,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["category", "amountMinor"],
+            "properties": {"category": {"$ref": "#/$defs/category"}, "amountMinor": {"$ref": "#/$defs/money"}}
+          }
+        },
+        "reason": {"type": "string", "maxLength": 1000}, "questions": {"type": "array", "items": {"type": "string", "maxLength": 300}}
+      }
+    }
+  }
+}

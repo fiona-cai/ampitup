@@ -294,6 +294,17 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, and TypeScript.
 
 ## Testing
 
+The standardized connector JSON and file-based Jev harness are documented in
+[`protocol/README.md`](protocol/README.md). They include a validated monthly
+fixture, 500 conditioned dummy samples, expected gate labels, and an optional
+local Laya backend.
+
+```bash
+npm run harness -- --expected data/demo/expected.json --fail-on-mismatch
+npm run data:sample -- --count 1000 --seed 7
+npm run test:protocol
+```
+
 ```bash
 npm test
 ```

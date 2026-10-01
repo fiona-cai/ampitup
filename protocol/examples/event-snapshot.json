@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "1.0",
+  "snapshotId": "example-one-event",
+  "generatedAt": "2026-09-30T20:00:00Z",
+  "isSimulated": true,
+  "subject": {
+    "id": "demo-maya",
+    "timeZone": "America/Toronto",
+    "homeCity": "Toronto"
+  },
+  "window": {
+    "start": "2026-10-01T00:00:00-04:00",
+    "end": "2026-11-01T00:00:00-04:00"
+  },
+  "policy": {
+    "id": "demo-work-expenses-v1",
+    "currency": "USD",
+    "fundingScope": "work",
+    "dailyLimitMinor": 30000,
+    "weeklyLimitMinor": 80000,
+    "monthlyLimitMinor": 200000,
+    "categoryCapsMinor": {
+      "meal": 28000,
+      "coffee": 6000,
+      "transport": 7500,
+      "lodging": 20000,
+      "admission": 10000,
+      "supplies": 5000,
+      "other": 3000
+    }
+  },
+  "events": [
+    {
+      "id": "notion:demo:2026-10-01-00",
+      "sources": [
+        {
+          "provider": "notion",
+          "collectionId": "demo-maya-october",
+          "recordId": "2026-10-01-00",
+          "updatedAt": "2026-09-30T12:00:00-04:00",
+          "url": null
+        }
+      ],
+      "title": "Team standup",
+      "description": "Synthetic demo event. No real account was accessed.",
+      "status": "confirmed",
+      "attendance": "accepted",
+      "schedule": {
+        "start": "2026-10-01T09:00:00-04:00",
+        "end": "2026-10-01T09:25:00-04:00",
+        "timeZone": "America/Toronto",
+        "allDay": false
+      },
+      "purpose": {
+        "scope": "work",
+        "importance": "normal",
+        "difficulty": "low"
+      },
+      "location": {
+        "mode": "virtual",
+        "label": "Online",
+        "city": "Toronto",
+        "countryCode": "CA",
+        "travelFromPreviousMinutes": 0
+      },
+      "participants": {
+        "totalCount": 1,
+        "externalCount": 0
+      },
+      "expenses": [],
+      "missingFields": []
+    }
+  ]
+}
