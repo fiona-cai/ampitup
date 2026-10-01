@@ -1,0 +1,37 @@
+lib/ramp.ts
+  s_cb36e1b67b0aff::t_fbbd11dde3489f 99-101
+lib/attendees.ts
+  s_cb36e1b67b0aff::t_7577446312fdd2 15
+lib/store.ts
+  s_cb36e1b67b0aff::t_32989caa75f758 1-34
+lib/presets.ts
+  s_cb36e1b67b0aff::t_6b7ef24dc2a0d9 1-18
+lib/pipeline.test.ts
+  s_cb36e1b67b0aff::t_f0f6e525608cd2 1-181
+app/api/trip/route.ts
+  s_cb36e1b67b0aff::t_652119089709fb 1-149
+lib/summary.ts
+  s_cb36e1b67b0aff::t_270afc630d5b1e 14-15
+.gitignore
+  s_cb36e1b67b0aff::t_91a3894d6b4f8f 42-44
+app/layout.tsx
+  s_cb36e1b67b0aff::t_059ecf3ae9bcc0 16-17
+lib/calendar.ts
+  s_cb36e1b67b0aff::t_b02202d9a838bc 1-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db3cc3deb5979135ceb7854fbc107aff9a1b3eb0",
+  "prompts": {},
+  "sessions": {
+    "s_cb36e1b67b0aff": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "f3a72ad7-69e0-48c5-82ba-d65d4773e4df",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fiona Cai <69484076+fiona-cai@users.noreply.github.com>"
+    }
+  }
+}
