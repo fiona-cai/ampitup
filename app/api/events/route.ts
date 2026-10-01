@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { loadCalendar } from "@/lib/calendar";
 import { clearTokens, googleConfig, readTokens } from "@/lib/google";
 import { priceEvents, pricerLabel } from "@/lib/pipeline";
-import { clampAmount } from "@/lib/price";
+import { fromCents, toCents } from "@/lib/money";
 import { approveBudgeted, authorize, createLimit } from "@/lib/ramp";
+import { reconcileEvents } from "@/lib/reconcile";
 import { demoEmployee, employeeFromGoogle } from "@/lib/seed";
 import { blankState, readState, writeState } from "@/lib/store";
 import { summarize } from "@/lib/summary";
@@ -42,14 +43,22 @@ function enqueue<T>(job: () => Promise<T>): Promise<T> {
 }
 
 function applyAmount(event: PricedEvent, amount: number): PricedEvent {
+  const cents = toCents(amount);
+  if (cents === null) throw new HttpError(400, "Budget amounts must be nonnegative dollars with at most two decimal places.");
   if (!event.budget) return event;
-  const rounded = Math.round(amount);
-  if (rounded <= 0) {
-    return { ...event, approval: "rejected", limit: null };
+  if (cents === 0) {
+    return { ...event, approval: "rejected" };
   }
+  const capCents = toCents(event.budget.cap);
+  if (capCents === null) throw new HttpError(400, "This budget's policy cap needs review.");
   const next: PricedEvent = {
     ...event,
-    budget: { ...event.budget, ...clampAmount(rounded, event.budget.cap) },
+    budget: {
+      ...event.budget,
+      amount: fromCents(Math.min(cents, capCents)),
+      rawAmount: amount,
+      clamped: cents > capCents,
+    },
   };
   if (next.approval === "approved") {
     next.limit = createLimit(next, next.limit);
@@ -62,7 +71,7 @@ function applyApproval(event: PricedEvent, approval: ApprovalStatus): PricedEven
     if (!event.budget) return event;
     return { ...event, approval, limit: createLimit(event, event.limit) };
   }
-  return { ...event, approval, limit: null };
+  return { ...event, approval };
 }
 
 async function handle(body: Record<string, unknown>): Promise<AppState> {
@@ -97,8 +106,8 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
       window: load.window,
       source: load.source,
       sourceNote: load.note,
-      events: priced,
-      charges: [],
+      events: reconcileEvents(state.events, priced),
+      charges: state.charges,
     });
   }
 
@@ -113,7 +122,10 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
     if (index < 0) throw new HttpError(400, "That event is not on this calendar.");
 
     let next = state.events[index];
-    if (typeof body.amount === "number") next = applyAmount(next, body.amount);
+    if (body.amount !== undefined) {
+      if (typeof body.amount !== "number") throw new HttpError(400, "Budget amount must be a number.");
+      next = applyAmount(next, body.amount);
+    }
     if (body.approval === "approved" || body.approval === "rejected" || body.approval === "pending") {
       next = applyApproval(next, body.approval);
     }
@@ -122,17 +134,19 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
   }
 
   if (action === "charge") {
-    const amount = Number(body.amount);
+    const amount = typeof body.amount === "number" ? body.amount : NaN;
     const time = typeof body.time === "string" ? body.time : "";
     const merchant = (typeof body.merchant === "string" && body.merchant.trim() ? body.merchant : "Card swipe").slice(0, 80);
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 10_000) {
-      throw new HttpError(400, "Enter a charge between $1 and $10,000.");
-    }
-    if (Number.isNaN(new Date(time).getTime())) throw new HttpError(400, "That charge time is not valid.");
+    if (body.eventId !== undefined && typeof body.eventId !== "string") throw new HttpError(400, "Event identity must be a string.");
+    if (body.requestId !== undefined && typeof body.requestId !== "string") throw new HttpError(400, "Request identity must be a string.");
     if (!state.events.some((event) => event.approval === "approved")) {
       throw new HttpError(400, "Approve at least one budget before trying a charge.");
     }
-    const result = authorize(state.events, { amount, time, merchant });
+    const result = authorize(state.events, {
+      amount, time, merchant,
+      eventId: typeof body.eventId === "string" ? body.eventId : undefined,
+      requestId: typeof body.requestId === "string" ? body.requestId : undefined,
+    });
     state.events = result.events;
     state.charges = [result.charge, ...state.charges].slice(0, 12);
     return writeState(state);
@@ -155,6 +169,9 @@ export async function POST(request: Request) {
     const state = await enqueue(() => handle(body));
     return NextResponse.json(present(state));
   } catch (error) {
+    if (error instanceof TypeError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (error instanceof HttpError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }

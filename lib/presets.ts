@@ -3,6 +3,7 @@ import type { PricedEvent } from "./types";
 
 export type ChargePreset = {
   id: string;
+  eventId: string;
   label: string;
   hint: string;
   amount: number;
@@ -32,6 +33,7 @@ export function buildPresets(events: PricedEvent[]): ChargePreset[] {
     const time = addMinutes(small.event.start, 15);
     presets.push({
       id: "over",
+      eventId: small.event.id,
       label: `${formatMoney(amount)} at ${formatTime(time)}`,
       hint: `${small.event.title} is capped at ${formatMoney(small.budget.amount)}`,
       amount,
@@ -45,6 +47,7 @@ export function buildPresets(events: PricedEvent[]): ChargePreset[] {
     const time = addMinutes(big.event.start, 30);
     presets.push({
       id: "within",
+      eventId: big.event.id,
       label: `${formatMoney(amount)} at ${formatTime(time)}`,
       hint: `${big.event.title} is capped at ${formatMoney(big.budget.amount)}`,
       amount,

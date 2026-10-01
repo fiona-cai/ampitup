@@ -2,7 +2,7 @@
 
 Allot gives every business event its own right-sized budget, so spend matches the purpose of the event instead of a daily allowance. That covers a client lunch across town, a team dinner, a coffee with a candidate, or a week on the road.
 
-It reads the employee's calendar, decides which events need company money, prices each one, and turns each approved budget into a card limit that is only open around that event. Money set aside for one event can't be spent on another, and every charge arrives already matched to the event it was for.
+It reads the employee's calendar, decides which events need company money, prices each one, and turns each approved budget into a mock card limit that is only open around that event. Money set aside for one event can't be spent on another. The charge simulator links approved attempts to an event and produces a mock expense line; it does not process real payments or match receipts.
 
 Design board: [Figma](https://www.figma.com/board/FSOjXIOANdMZn3smWq5CCk/Ramp-it-Up?node-id=0-1&p=f&t=JhBuY6XVh6eyKl32-0)
 
@@ -55,18 +55,18 @@ npm run build   # production build
 
 The seeded calendar belongs to Maya Chen at Northwind, who is based in Waterloo. Her week has events at home on Monday and Friday and a New York visit with the Acme account from Tuesday to Thursday.
 
-1. **Sign in.** With Google set up, "Sign in with Google" connects a real account; see [Google sign-in](#google-sign-in). Without it, "Continue with the sample account" loads the sample week.
-2. **Sync.** Allot pulls the next 7 days and runs each event through Jev and the pricer. Events appear one at a time, grouped by day. Each day is tagged with the home city or "Travel" and the destination.
-3. **Read the cards.** Each event shows whether it got a budget, the amount, a one-line reason, the Jev rule that fired, the policy rule behind the cap, and whether Claude or a policy rate set the amount. Events Jev is unsure about carry a "Low confidence" tag.
-4. **Review.** "Approve all" approves every pending budget. Each card also has Approve, Edit, and Reject. Edits are clamped to the policy cap, and setting an amount to $0 rejects the budget.
-5. **Charge.** Once budgets are approved, every card shows the window its limit is open. Two preset charges are built from the calendar: one that overspends the first solo meal and one that fits inside the biggest meal. On the sample week they are:
+1. **Choose a source and load events.** Click "Load sample events" in the empty table to run the seeded week through Jev and the pricer without signing in. For a real calendar, open "Calendar sync", click "Sign in with Google", then refresh events after granting read-only access; see [Google sign-in](#google-sign-in). The source label distinguishes Sample from Google. Options → "Refresh events" reloads the selected source.
+2. **Browse the table.** "Overview", "Needs review", "Live", and "No budget" organize the event rows by budget status. "Live" means an approved mock limit, not a real Ramp card or a guarantee that its time window is currently open. Search titles, descriptions, locations, cities, or attendees; Filter narrows the view by category or low confidence.
+3. **Inspect and review.** Click an event name or Details to open its drawer. It shows context, attendees, Jev reasoning, pricing source, policy cap, card window, and simulated spending. Edit the amount, approve the budget, or select "No budget for this event" to reject it. Edits are clamped to policy, and $0 rejects the budget. Row checkboxes and the footer Select menu support bulk review.
+4. **Use Options.** "Approve all budgets" approves budgeted events except ones already rejected. "Export visible events" downloads the current filtered rows as CSV. "Reset demo" clears the sample state so it can be loaded again.
+5. **Try the Card simulator.** Open the card icon or Options → "Try a demo charge". Once budgets are approved, two presets are built from the loaded calendar: one that overspends the first solo meal and one that fits inside the biggest meal. On the sample week they are:
    - **$90 at 1:00 PM on Tuesday** is declined: "Solo lunch is capped at $25. This card can't borrow from Dinner with Acme."
-   - **$180 at 7:30 PM on Tuesday** is approved against the Acme dinner, leaving $60 on that limit, and produces an expense report line.
+   - **$180 at 7:30 PM on Tuesday** is approved against the Acme dinner, leaving $60 on that mock limit, and produces an event-linked mock expense line.
 
-   The form below the presets takes any merchant, amount, day, and time.
-6. **Summary.** The dark panel at the bottom compares the week with and without Allot, day by day.
+   The form below the presets takes an approved event, merchant, and amount, and simulates the attempt at that event's start time. Recent attempts and event drawers show the result. No money moves and no receipt is uploaded or matched.
+6. **Read the footer.** It shows visible and total event counts, the budgeted amount versus the modeled baseline, and a Demo label. This compares planned sample budgets, not measured customer savings or real expenditure.
 
-"Reset demo" in the header clears events and charges. When signed in with Google, "Sign out" also disconnects the account.
+Options → "Reset demo" clears events and charges while preserving Google sign-in. "Sign out" in Calendar sync disconnects the Google account and clears its state. Even with real calendar context, all card charges remain simulated.
 
 ### What the seeded week produces
 
@@ -191,7 +191,7 @@ When a charge comes in:
 1. Find the approved limits that are open at the charge time. If none are open, decline: limits don't cover the gaps between events.
 2. If several are open, use the one with the shortest window, which is the most specific event.
 3. If the charge is more than what's left on that limit, decline and name the event it can't borrow from.
-4. Otherwise approve it, add it to the limit's spend, and write an expense report line that matches the receipt to the event.
+4. Otherwise approve the simulated attempt, add it to the mock limit's spend, and write an expense line linked to the event. No receipt matching is performed.
 
 Spend accumulates, so two charges against the same dinner share its limit. The last 12 charges are kept.
 
@@ -237,7 +237,7 @@ cp .env.example .env.local
 
 ### Google sign-in
 
-Without Google credentials the sign-in button reads "Continue with the sample account" and loads the sample week.
+Without Google credentials, "Load sample events" still runs the complete sample demo. Calendar sync explains the required configuration instead of pretending to connect a Google account.
 
 **1. Set up Google Cloud (once, about 10 minutes)**
 
@@ -256,7 +256,7 @@ In Testing mode, Google shows an "unverified app" warning on the consent screen.
 
 **2. Sign in**
 
-Click **Sign in with Google** and approve read-only calendar access. You're sent back to the app signed in, with your email in the header. **Sync calendar** then reads your real next 7 days.
+Open **Calendar sync**, click **Sign in with Google**, and approve read-only calendar access. You're sent back to the app with the connected account shown in the source pane. **Refresh events** then reads your real next 7 days; the table's source label identifies Google context.
 
 **3. Load the sample week onto a real calendar (for the demo)**
 
@@ -339,7 +339,13 @@ State is stored in `data/state.json`, which is gitignored. Writes are queued so 
 | `app/api/events/route.ts` | The API: connect, sync, decide, charge, reset, sign out |
 | `app/api/auth/google/route.ts` | Starts Google sign-in |
 | `app/api/auth/google/callback/route.ts` | Finishes Google sign-in and stores tokens |
-| `components/AllotApp.tsx` | Event view, review controls, charge simulator, summary |
+| `components/RampAllotApp.tsx` | Ramp-style event table, status tabs, search/filter, selection, Options, CSV export, and modeled-baseline footer |
+| `components/RampSidebar.tsx` | Navigation for events, policy, calendar sync, and prototype shell sections |
+| `components/RampIcon.tsx` | Shared interface icons |
+| `components/EventDetails.tsx` | Event context and budget drawer: edit, approve, reject, and simulated charges |
+| `components/DemoCardPanel.tsx` | Mock charge presets, event-bound simulator, and recent attempts |
+| `components/AppDialog.tsx` | Dialog and drawer shell |
+| `lib/ui-events.ts` | Pure status counts, event filters, display windows, charge lookup, and avatars |
 | `lib/jev.ts` | Jev rules and scorer |
 | `lib/price.ts` | Claude pricing, policy-rate fallback, caps, and clamp |
 | `lib/pipeline.ts` | Runs Jev and pricing over a list of events |
@@ -397,5 +403,5 @@ This is a hackathon build. Not done yet:
 - **One user at a time.** State and Google tokens are single JSON files with no accounts or roles. Whoever signs in last owns the app, and the employee and the manager use the same screen. Tokens on disk would need encryption and a database before real use.
 - **Eastern time only.** Meal times and display use `America/New_York`, and the charge form assumes the `-04:00` offset.
 - **USD only.**
-- **No receipts.** Approved charges produce an expense report line, but there's no receipt upload or export.
+- **No receipts or real payments.** Approved simulated charges produce an event-linked mock expense line. There is no receipt upload or matching; the CSV export contains event rows, not receipts.
 - **No ad hoc events.** Events come from the calendar; there's no form to add an unplanned one.
