@@ -4,6 +4,8 @@ ContextCard gives every business event its own right-sized budget, so spend matc
 
 It reads the calendar, decides which events need company money, prices each one, and turns each approved budget into a card limit that is only open around that event.
 
+https://www.figma.com/board/FSOjXIOANdMZn3smWq5CCk/Ramp-it-Up?node-id=0-1&p=f&t=JhBuY6XVh6eyKl32-0
+
 ## Run it
 
 ```bash
