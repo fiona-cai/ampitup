@@ -188,7 +188,7 @@ describe("seeded week", () => {
     assert.equal(accepted.charge.result, "approved");
     assert.equal(accepted.charge.eventTitle, "Dinner with Acme");
     assert.match(accepted.charge.detail, /\$60 left/);
-    assert.match(accepted.charge.report ?? "", /receipt matched/);
+    assert.match(accepted.charge.report ?? "", /simulated expense matched/);
 
     const local = authorize(approved, {
       amount: 40,

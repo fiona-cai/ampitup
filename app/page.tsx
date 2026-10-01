@@ -1,4 +1,4 @@
-import AllotApp from "@/components/AllotApp";
+import AllotApp from "@/components/RampAllotApp";
 
 export default function Home() {
   return <AllotApp />;
