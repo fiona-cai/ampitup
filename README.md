@@ -302,6 +302,25 @@ After seeding, click **Sign out**, then sign in again without `?write=1`, so the
 - Access tokens are refreshed automatically when they're within a minute of expiring.
 - **Sign out** deletes `data/google.json` and revokes the token with Google. **Reset demo** clears events and charges but keeps you signed in.
 
+### Notion event context
+
+Notion is a read-only connector to the shared `EventSnapshot` v1.0 format in `protocol/budget.schema.json`. It reads a selected database/data source; it does not change Notion pages, approve budgets, or merge events into the current Calendar demo state.
+
+1. Create a Notion API connection with **Read content** only, and share only the intended event database with it. Browser sign-in alone does not give the server API access.
+2. Set `NOTION_TOKEN` and `NOTION_DATABASE_ID` (or `NOTION_DATA_SOURCE_ID`) in gitignored `.env.local`. Keep `NOTION_IS_SIMULATED=true` for the supplied synthetic data. For deployment, configure the same server-only variables and redeploy.
+3. In **Calendar sync → Notion context**, choose **Export Notion events**, or run:
+
+```bash
+npm run sync:notion -- --simulated --output data/harness/notion-snapshot.json
+python protocol/validate.py data/harness/notion-snapshot.json
+```
+
+The CLI uses the existing October demo subject, policy, and window. Supply `--template snapshot.json` to use another valid subject/policy/window, or override `--start` and `--end` with explicit-offset timestamps. Exported files under `data/harness/` are ignored by Git.
+
+Import `data/demo/notion-events.csv` into a Notion database for eight synthetic event plans. Map **Start** and **End** to Text so their full ISO timestamps and offsets are retained. The remaining columns describe location, participant counts, purpose, attendance, status, and explicit expense facts. `Expense facts` is a JSON array: `[]` confirms no expense; `null` means unknown. Cancelled records remain cancelled in the unified JSON.
+
+`GET /api/integrations/notion` exports the canonical JSON; `?download=1` adds an attachment filename. `?status=1` reports configuration without exposing credentials. `?diagnostics=1` reports skipped or out-of-window rows separately, and export headers also include skipped counts. Untimed or invalid rows are skipped with diagnostics rather than assigned invented spending windows.
+
 ### Without OAuth
 
 For a quick test without setting up an OAuth client, set `CALENDAR_SOURCE=google` and `GOOGLE_ACCESS_TOKEN` to a token from the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) with the `calendar.readonly` scope. Tokens from the Playground expire after about an hour. A signed-in account takes priority over this token.

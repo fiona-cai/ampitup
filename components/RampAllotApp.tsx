@@ -7,6 +7,7 @@ import EventDetails from "./EventDetails";
 import DemoCardPanel from "./DemoCardPanel";
 import AppDialog from "./AppDialog";
 import FundingWorkflow from "./FundingWorkflow";
+import NotionContextPanel from "./NotionContextPanel";
 import { policy } from "@/lib/policy";
 import { dayKey, formatDayKey, formatMoney, formatTime, formatRange } from "@/lib/time";
 import { avatarFor, eventCounts, eventStatus, eventWindow, filterEvents, latestChargeFor } from "@/lib/ui-events";
@@ -263,5 +264,5 @@ function PolicyView() {
 function CalendarView({ state, busy, onSync, onSignOut }: { state: AppResponse | null; busy: boolean; onSync: () => Promise<void>; onSignOut: () => Promise<void> }) {
   return <div className="policy-view"><h2>Calendar context</h2><p>{state?.employee.name ?? "Employee"} · {state?.employee.email ?? "Loading…"}</p><p>{state?.synced ? `${state.events.length} events loaded for ${formatRange(state.window.start, state.window.end)} from ${state.source === "google" ? "Google Calendar" : "the sample calendar"}.` : "Connect Google Calendar or load the sample calendar to review event budgets."}</p>
     <div className="form-actions">{state?.googleConfigured && <a className="primary-button" href="/api/auth/google">{state.googleAccount ? "Reconnect Google" : "Sign in with Google"}</a>}<button className="primary-button" disabled={busy} onClick={() => void onSync()}><RampIcon name="refresh" />{busy ? "Refreshing…" : "Refresh events"}</button>{state?.googleAccount && <button className="undo" disabled={busy} onClick={() => void onSignOut()}>Sign out</button>}</div>
-    {state?.sourceNote && <p role="status">{state.sourceNote}</p>}{state?.storage === "ephemeral" && <p role="status">No database is connected, so this deployment can lose sign-ins and approvals between requests. Connect Upstash Redis in Vercel to keep them.</p>}{state && !state.googleConfigured && <p className="muted">Google sign-in is not configured on this server. Sample events are available.</p>}<p className="muted">Google Calendar is read-only. Notion integration is handled by the data integration team.</p></div>;
+    {state?.sourceNote && <p role="status">{state.sourceNote}</p>}{state?.storage === "ephemeral" && <p role="status">No database is connected, so this deployment can lose sign-ins and approvals between requests. Connect Upstash Redis in Vercel to keep them.</p>}{state && !state.googleConfigured && <p className="muted">Google sign-in is not configured on this server. Sample events are available.</p>}<p className="muted">Google Calendar is read-only.</p><NotionContextPanel /></div>;
 }
