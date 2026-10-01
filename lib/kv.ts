@@ -37,16 +37,53 @@ function filePath(key: string): string {
   return path.join(dir, `${key}.json`);
 }
 
-export async function getJson<T>(key: string): Promise<T | null> {
+export type JsonSnapshot<T> = { value: T | null; raw: string | null };
+
+/** Preserve the exact stored bytes: reconstructing JSON would not be a valid CAS token. */
+export async function readJsonSnapshot<T>(key: string): Promise<JsonSnapshot<T>> {
   if (redisConfig()) {
     const raw = await redis(["GET", PREFIX + key]);
-    return typeof raw === "string" ? (JSON.parse(raw) as T) : null;
+    return typeof raw === "string" ? { value: JSON.parse(raw) as T, raw } : { value: null, raw: null };
   }
   try {
-    return JSON.parse(fs.readFileSync(filePath(key), "utf8")) as T;
+    const raw = fs.readFileSync(filePath(key), "utf8");
+    return { value: JSON.parse(raw) as T, raw };
   } catch {
-    return null;
+    return { value: null, raw: null };
   }
+}
+
+export async function getJson<T>(key: string): Promise<T | null> {
+  return (await readJsonSnapshot<T>(key)).value;
+}
+
+const CAS_SCRIPT = `
+local current = redis.call('GET', KEYS[1])
+if ARGV[1] == '0' then
+  if current then return 0 end
+elseif current ~= ARGV[2] then
+  return 0
+end
+redis.call('SET', KEYS[1], ARGV[3])
+return 1
+`;
+
+/** Redis executes the comparison and write atomically across all app instances. */
+export async function compareAndSetJson(key: string, expectedRaw: string | null, value: unknown): Promise<boolean> {
+  const nextRaw = JSON.stringify(value);
+  if (redisConfig()) {
+    const result = await redis(["EVAL", CAS_SCRIPT, 1, PREFIX + key, expectedRaw === null ? "0" : "1", expectedRaw ?? "", nextRaw]);
+    if (result !== 0 && result !== 1) throw new Error("Redis compare-and-set returned an invalid result.");
+    return result === 1;
+  }
+  const file = filePath(key);
+  let current: string | null = null;
+  try { current = fs.readFileSync(file, "utf8"); } catch { /* Missing local file. */ }
+  if (current !== expectedRaw) return false;
+  // No await between local compare/write; route queue covers this process.
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, nextRaw);
+  return true;
 }
 
 export async function setJson(key: string, value: unknown, options: { secret?: boolean } = {}): Promise<void> {

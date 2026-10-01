@@ -56,6 +56,7 @@ export type SpendLimit = {
 
 export type ChargeAttempt = {
   id: string;
+  requestId?: string;
   merchant: string;
   amount: number;
   time: string;
@@ -72,6 +73,8 @@ export type PricedEvent = {
   budget: BudgetQuote | null;
   approval: ApprovalStatus;
   limit: SpendLimit | null;
+  /** Removed/cancelled source record retained for audit; cannot fund charges. */
+  archived?: boolean;
 };
 
 export type Employee = {
@@ -100,6 +103,7 @@ export type AppState = {
   sourceNote: string | null;
   events: PricedEvent[];
   charges: ChargeAttempt[];
+  chargeRequests?: Record<string, { fingerprint: string; charge: ChargeAttempt }>;
 };
 
 export type DayRow = {

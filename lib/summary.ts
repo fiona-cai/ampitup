@@ -3,7 +3,7 @@ import { dayKey, formatDayKey, formatMoney } from "./time";
 import type { PricedEvent, SpendSummary } from "./types";
 
 function activeBudget(event: PricedEvent): number {
-  if (!event.budget || event.approval === "rejected") return 0;
+  if (event.archived || !event.budget || event.approval === "rejected") return 0;
   return event.budget.amount;
 }
 
@@ -40,7 +40,7 @@ export function summarize(events: PricedEvent[], homeCity: string): SpendSummary
   const todayCost = perDiems + reimbursed;
   const allotted = events.reduce((sum, event) => sum + activeBudget(event), 0);
   const travelDays = days.filter((day) => day.travelCity).length;
-  const budgetedEvents = events.filter((event) => event.budget && event.approval !== "rejected").length;
+  const budgetedEvents = events.filter((event) => !event.archived && event.budget && event.approval !== "rejected").length;
 
   const perDiemPart =
     travelDays > 0 ? `${formatMoney(perDiems)} in travel per diems plus ` : "";

@@ -4,10 +4,11 @@ import { clearTokens, googleConfig, readTokens } from "@/lib/google";
 import { storageKind } from "@/lib/kv";
 import { priceEvents, pricerLabel } from "@/lib/pipeline";
 import { fromCents, toCents } from "@/lib/money";
-import { approveBudgeted, authorize, createLimit } from "@/lib/ramp";
+import { approveBudgeted, createLimit } from "@/lib/ramp";
+import { applyStoredCharge, ChargeConflictError } from "@/lib/charges";
 import { reconcileEvents } from "@/lib/reconcile";
 import { demoEmployee, employeeFromGoogle } from "@/lib/seed";
-import { blankState, readState, writeState } from "@/lib/store";
+import { blankState, commitStateSnapshot, readState, readStateSnapshot, StateConflictError } from "@/lib/store";
 import { summarize } from "@/lib/summary";
 import type { AppResponse, AppState, ApprovalStatus, PricedEvent } from "@/lib/types";
 
@@ -24,8 +25,12 @@ class HttpError extends Error {
 }
 
 async function present(state: AppState): Promise<AppResponse> {
+  const visible = { ...state };
+  // Keep the unbounded idempotency ledger on the server; the UI only needs its
+  // bounded recent attempts. Both are persisted by writeState.
+  delete visible.chargeRequests;
   return {
-    ...state,
+    ...visible,
     summary: state.synced ? summarize(state.events, state.employee.homeCity) : null,
     googleConfigured: googleConfig() !== null,
     googleAccount: (await readTokens())?.email ?? null,
@@ -78,29 +83,30 @@ function applyApproval(event: PricedEvent, approval: ApprovalStatus): PricedEven
 
 async function handle(body: Record<string, unknown>): Promise<AppState> {
   const action = body.action;
+  const snapshot = await readStateSnapshot();
+  const state = snapshot.state;
+  const persist = (next: AppState) => commitStateSnapshot(snapshot, next);
   if (action === "reset") {
     const tokens = await readTokens();
-    if (!tokens) return writeState(blankState());
-    return writeState({ ...blankState(), connected: true, employee: employeeFromGoogle(tokens.email, tokens.name) });
+    if (!tokens) return persist(blankState());
+    return persist({ ...blankState(), connected: true, employee: employeeFromGoogle(tokens.email, tokens.name) });
   }
 
   if (action === "signout") {
     await clearTokens();
-    return writeState(blankState());
+    return persist(blankState());
   }
-
-  const state = await readState();
 
   if (action === "connect") {
     state.connected = true;
-    return writeState(state);
+    return persist(state);
   }
 
   if (action === "sync") {
     const load = await loadCalendar(state.employee.homeCity);
     const domain = load.source === "google" ? state.employee.companyDomain : demoEmployee.companyDomain;
     const priced = await priceEvents(load.events, domain);
-    return writeState({
+    return persist({
       ...state,
       connected: true,
       synced: true,
@@ -117,13 +123,16 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
     if (!state.synced) throw new HttpError(400, "Sync the calendar before reviewing budgets.");
     if (body.all === true) {
       state.events = approveBudgeted(state.events);
-      return writeState(state);
+      return persist(state);
     }
     const eventId = typeof body.eventId === "string" ? body.eventId : "";
     const index = state.events.findIndex((event) => event.event.id === eventId);
     if (index < 0) throw new HttpError(400, "That event is not on this calendar.");
 
     let next = state.events[index];
+    if (next.archived && (body.amount !== undefined || body.approval === "approved" || body.approval === "pending")) {
+      throw new HttpError(400, "This event is no longer in the active calendar. Sync it again before changing or approving its budget.");
+    }
     if (body.amount !== undefined) {
       if (typeof body.amount !== "number") throw new HttpError(400, "Budget amount must be a number.");
       next = applyAmount(next, body.amount);
@@ -132,26 +141,30 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
       next = applyApproval(next, body.approval);
     }
     state.events = state.events.map((event, eventIndex) => (eventIndex === index ? next : event));
-    return writeState(state);
+    return persist(state);
   }
 
   if (action === "charge") {
     const amount = typeof body.amount === "number" ? body.amount : NaN;
     const time = typeof body.time === "string" ? body.time : "";
-    const merchant = (typeof body.merchant === "string" && body.merchant.trim() ? body.merchant : "Card swipe").slice(0, 80);
+    const merchant = typeof body.merchant === "string" ? body.merchant : "Card swipe";
     if (body.eventId !== undefined && typeof body.eventId !== "string") throw new HttpError(400, "Event identity must be a string.");
     if (body.requestId !== undefined && typeof body.requestId !== "string") throw new HttpError(400, "Request identity must be a string.");
-    if (!state.events.some((event) => event.approval === "approved")) {
-      throw new HttpError(400, "Approve at least one budget before trying a charge.");
-    }
-    const result = authorize(state.events, {
+    const input = {
       amount, time, merchant,
       eventId: typeof body.eventId === "string" ? body.eventId : undefined,
       requestId: typeof body.requestId === "string" ? body.requestId : undefined,
-    });
-    state.events = result.events;
-    state.charges = [result.charge, ...state.charges].slice(0, 12);
-    return writeState(state);
+    };
+    let current = snapshot;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const result = applyStoredCharge(current.state, input);
+      try { return await commitStateSnapshot(current, result.state); }
+      catch (error) {
+        if (!(error instanceof StateConflictError) || attempt === 4) throw error;
+        current = await readStateSnapshot();
+      }
+    }
+    throw new StateConflictError();
   }
 
   throw new HttpError(400, "Unknown action.");
@@ -171,6 +184,9 @@ export async function POST(request: Request) {
     const state = await enqueue(() => handle(body));
     return NextResponse.json(await present(state));
   } catch (error) {
+    if (error instanceof ChargeConflictError || error instanceof StateConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     if (error instanceof TypeError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

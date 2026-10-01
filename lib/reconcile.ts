@@ -32,17 +32,20 @@ export function reconcileEvents(previous: PricedEvent[], incoming: PricedEvent[]
     if (!item.event.id || seen.has(item.event.id)) throw new TypeError("Source events need unique, stable identities.");
     seen.add(item.event.id);
     const old = previousById.get(item.event.id);
-    if (!old) return { ...item, approval: cancelled(item.event) ? "rejected" : "pending", limit: null };
-    const changed = fingerprint(old) !== fingerprint(item);
+    const archived = item.archived === true || cancelled(item.event);
+    if (!old) return { ...item, archived, approval: archived ? "rejected" : "pending", limit: null };
+    const changed = old.archived === true || fingerprint(old) !== fingerprint(item);
+    const active = { ...item, archived: false };
     return {
       ...item,
-      approval: cancelled(item.event) ? "rejected" : changed ? "pending" : old.approval,
+      archived,
+      approval: archived ? "rejected" : changed ? "pending" : old.approval,
       // Keep the old ledger even if the new source no longer needs a budget.
-      limit: item.budget ? createLimit(item, old.limit) ?? old.limit : old.limit,
+      limit: !archived && item.budget ? createLimit(active, old.limit) ?? old.limit : old.limit,
     };
   });
   for (const old of previous) {
-    if (!seen.has(old.event.id)) reconciled.push({ ...old, approval: "rejected" });
+    if (!seen.has(old.event.id)) reconciled.push({ ...old, archived: true, approval: "rejected" });
   }
   return reconciled;
 }

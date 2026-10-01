@@ -12,7 +12,7 @@ export type EventFilters = {
 
 /** These are presentation groups, not proof of a real Ramp card or current authorization. */
 export function eventStatus(item: PricedEvent): Exclude<BudgetTab, "overview"> {
-  if (!item.jev.needsBudget || !item.budget || item.approval === "rejected") return "none";
+  if (item.archived || !item.jev.needsBudget || !item.budget || item.approval === "rejected") return "none";
   return item.approval === "approved" && item.limit ? "live" : "review";
 }
 
@@ -50,7 +50,7 @@ export function latestChargeFor(eventId: string, charges: ChargeAttempt[]): Char
 
 /** Preview the same policy window as createLimit without importing server-only authorization code. */
 export function eventWindow(item: PricedEvent): string {
-  if (!item.budget || item.approval === "rejected") return "—";
+  if (item.archived || !item.budget || item.approval === "rejected") return "—";
   const start = parseInstant(item.event.start);
   const end = parseInstant(item.event.end);
   if (start === null || end === null || start >= end || toCents(item.budget.amount) === null) return "—";
