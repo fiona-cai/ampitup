@@ -1,6 +1,6 @@
 # Contextual Laya + Luna demo
 
-The homepage is a live two-stage funding harness. It uses the synthetic LARP month (`data/demo/month.json`, 118 events), the seeded augmented calendar (`data/demo/samples.json`, 500 events), or an uploaded v1.0 snapshot. The reusable JSON template and schema are in `protocol/`; the wire contract is unchanged.
+The homepage is the consolidated Ramp UI with an animated two-stage funding pipeline. Click Run Jev, then Run Luna; rationale and feedback live in event drawers. The detailed harness is at `/harness`. Live mode calls actual models; Verified replay is explicitly labeled and accepts only exact recorded contexts. It uses the synthetic LARP month (`data/demo/month.json`, 118 events), the seeded augmented calendar (`data/demo/samples.json`, 500 events), or an uploaded v1.0 snapshot. The reusable JSON template and schema are in `protocol/`; the wire contract is unchanged.
 
 ## Start
 
@@ -40,7 +40,7 @@ npm run lint
 npm run build
 ```
 
-The existing Python CLI harness remains available through `npm run harness`; see `protocol/README.md` for generating and validating arbitrary synthetic snapshots. The original product demo is preserved at `/classic`. On Vercel the homepage retains that product UI, because the local GPU/CLI providers are unavailable in the serverless runtime; locally the homepage runs the Laya harness.
+The existing Python CLI harness remains available through `npm run harness`; see `protocol/README.md` for generating and validating arbitrary synthetic snapshots. Cards & calendar preserves the team’s calendar/card workflow in the same app. On Vercel the pipeline uses verified recordings of real Laya/Luna runs; locally live mode runs those providers.
 
 ## Scope
 

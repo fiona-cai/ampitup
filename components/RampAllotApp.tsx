@@ -6,6 +6,7 @@ import RampIcon from "./RampIcon";
 import EventDetails from "./EventDetails";
 import DemoCardPanel from "./DemoCardPanel";
 import AppDialog from "./AppDialog";
+import FundingWorkflow from "./FundingWorkflow";
 import { policy } from "@/lib/policy";
 import { dayKey, formatDayKey, formatMoney, formatTime, formatRange } from "@/lib/time";
 import { avatarFor, eventCounts, eventStatus, eventWindow, filterEvents, latestChargeFor } from "@/lib/ui-events";
@@ -26,6 +27,7 @@ export default function AllotApp() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<BudgetTab>("overview");
   const [page, setPage] = useState<Page>("context");
+  const [workspaceView, setWorkspaceView] = useState<"funding" | "cards">("funding");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [lowConfidence, setLowConfidence] = useState(false);
@@ -80,7 +82,7 @@ export default function AllotApp() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault(); setPage("context"); searchRef.current?.focus();
+        event.preventDefault(); setPage("context"); setWorkspaceView("cards"); searchRef.current?.focus();
       }
       if (event.key === "Escape") setMenu(null);
     };
@@ -138,13 +140,12 @@ export default function AllotApp() {
     <main className="app-shell">
       <a className="skip-link" href="#event-workspace">Skip to events</a>
       <RampSidebar reviewCount={counts.review} selected={page} onNavigate={navigate}
-        onSearch={() => { navigate("context"); searchRef.current?.focus(); }} onSection={setInfo} />
+        onSearch={() => { navigate("context"); setWorkspaceView("cards"); searchRef.current?.focus(); }} onSection={setInfo} />
       <section className="workspace" id="event-workspace" aria-busy={busy}>
         <header className="page-header">
-          <div className="eyebrow">Spend programs · Allot</div>
           <div className="title-row">
             <h1 className="page-title">{page === "policy" ? "Spending policy" : page === "sources" ? "Calendar sync" : "Your business events"}</h1>
-            <span className="title-count">{state && formatRange(state.window.start, state.window.end)}{state && " · "}{events.length} events synced</span>
+            {page === "context" && <div className="funding-workspace-switch" aria-label="Allot workspace"><button aria-pressed={workspaceView === "funding"} onClick={() => setWorkspaceView("funding")}>Funding pipeline</button><button aria-pressed={workspaceView === "cards"} onClick={() => setWorkspaceView("cards")}>Cards & calendar</button></div>}
           </div>
         </header>
         {toast && <div className="toast" role="status"><span>{toast}</span>
@@ -152,7 +153,7 @@ export default function AllotApp() {
           <button className="icon-button" aria-label="Dismiss notification" onClick={() => setToast(null)}><RampIcon name="close" /></button>
         </div>}
         {error && <div className="error-banner" role="alert"><span>{error}</span><button className="undo" onClick={() => void load()}>Retry</button></div>}
-        {page === "policy" ? <PolicyView /> : page === "sources" ? <CalendarView state={state} busy={busy} onSync={sync} onSignOut={async () => { if (await send({ action: "signout" })) announce("Google calendar disconnected."); }} /> : <>
+        {page === "policy" ? <PolicyView /> : page === "sources" ? <CalendarView state={state} busy={busy} onSync={sync} onSignOut={async () => { if (await send({ action: "signout" })) announce("Google calendar disconnected."); }} /> : workspaceView === "funding" ? <FundingWorkflow /> : <>
           <div className="tabs" role="tablist" aria-label="Event budget status">
             {TABS.map(({ id, label }) => <button key={id} role="tab" aria-selected={tab === id} aria-controls="events-panel"
               className={`tab${tab === id ? " active" : ""}`} onClick={() => { setTab(id); setMenu(null); }}>

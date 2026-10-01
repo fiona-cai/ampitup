@@ -72,6 +72,7 @@ export type ConditionedEvent = {
 };
 
 export type DemoPlan = {
+  execution?: { source: "live" | "recorded"; recordedAt?: string; liveAvailable: boolean };
   runId?: string;
   snapshot: EventSnapshot;
   settings: DemoSettings;
@@ -96,7 +97,8 @@ export type DemoRequest = {
   snapshot?: unknown;
   settings?: Partial<DemoSettings>;
   approvals?: Record<string, "approved" | "rejected">;
-  action?: "preview" | "allocate" | "feedback" | "clear_memory";
+  action?: "preview" | "classify" | "allocate" | "feedback" | "clear_memory";
+  execution?: "live" | "recorded";
   runId?: string;
   feedback?: { assignmentId: string; value: "too_low" | "appropriate" | "too_high"; actualMinor?: number };
 };

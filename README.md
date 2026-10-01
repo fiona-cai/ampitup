@@ -45,9 +45,11 @@ npm run dev -- --hostname 127.0.0.1
 
 Open [http://localhost:3000](http://localhost:3000). Local Laya classifies the supplied calendar; real `gpt-6-luna` calls use your authenticated Codex CLI. Setup requires `uv`, the Hugging Face `hf` CLI, and Codex. There is no fake pricing fallback on the homepage.
 
-The homepage includes the standardized 118-event October snapshot, 500 generated samples, and JSON upload. Change available money, duration, importance, difficulty, attendance, expenses, and feasibility, then allocate again. Record actual spending and feedback to condition future decisions on past assignments. See [the contextual demo guide](docs/contextual-demo.md) for the contract, providers, constraints, and learning behavior.
+The homepage uses the consolidated Ramp UI. Click **Run Jev** to watch events sort into No funding, Needs funding, and Dubious, then **Run Luna** to price only the candidates. Open an event for rationale, history, approval, and actual-spend feedback. **Cards & calendar** retains the team's calendar sync and card simulator. **Context** contains the money and workload controls; the full JSON/data harness remains at `/harness`.
 
-The earlier policy-rate/Claude demo remains at [http://localhost:3000/classic](http://localhost:3000/classic). The walkthrough and original pipeline below describe that route; it works without model credentials.
+On this configured Mac, **Live models** calls actual local Laya and authenticated gpt-6-luna. **Verified replay** plays captured real model outputs quickly and is explicitly labeled. Vercel defaults to replay because its serverless runtime has no local Apple GPU or Codex login. Replays reject changed facts; live mode accepts custom v1.0 JSON. Both the ordinary and $120-wallet recordings enforce policy and cumulative funds.
+
+The original Figma source is retained in `UI FOLDER/` as a separate Vite project; the Next.js application uses the team's port in `components/RampAllotApp.tsx`. The safeguard branch has also been merged, including atomic hosted-budget writes and charge idempotency.
 
 Other scripts:
 
@@ -308,7 +310,7 @@ For a quick test without setting up an OAuth client, set `CALENDAR_SOURCE=google
 
 ## Deployment
 
-The local Laya + Luna harness needs Apple Silicon and an authenticated local Codex CLI. On Vercel, the homepage retains the Ramp product UI; the local homepage runs the new harness. The `/classic` route also retains the Ramp UI.
+The consolidated Ramp homepage runs the funding pipeline everywhere. It uses local live providers on the configured Mac and explicitly labeled verified replay on Vercel. The `/harness` route retains the detailed developer harness.
 
 Production runs on Vercel at [allot-ramp.vercel.app](https://allot-ramp.vercel.app), in the `fionacais-projects/allot` project. Every push to `main` deploys automatically through the GitHub connection.
 
