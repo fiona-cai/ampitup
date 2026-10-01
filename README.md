@@ -308,6 +308,8 @@ For a quick test without setting up an OAuth client, set `CALENDAR_SOURCE=google
 
 ## Deployment
 
+The local Laya + Luna harness needs Apple Silicon and an authenticated local Codex CLI. On Vercel, the homepage retains the Ramp product UI; the local homepage runs the new harness. The `/classic` route also retains the Ramp UI.
+
 Production runs on Vercel at [allot-ramp.vercel.app](https://allot-ramp.vercel.app), in the `fionacais-projects/allot` project. Every push to `main` deploys automatically through the GitHub connection.
 
 **Storage.** Vercel can't keep files between requests, so state and Google tokens go to Upstash Redis when `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`) are set. Without them, a deployment stores state in its temp directory, which is lost whenever Vercel starts a new instance, and the calendar connections panel shows a warning. Locally, everything stays in `data/`.

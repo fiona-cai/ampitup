@@ -40,7 +40,7 @@ npm run lint
 npm run build
 ```
 
-The existing Python CLI harness remains available through `npm run harness`; see `protocol/README.md` for generating and validating arbitrary synthetic snapshots. The original product demo is preserved at `/classic`.
+The existing Python CLI harness remains available through `npm run harness`; see `protocol/README.md` for generating and validating arbitrary synthetic snapshots. The original product demo is preserved at `/classic`. On Vercel the homepage retains that product UI, because the local GPU/CLI providers are unavailable in the serverless runtime; locally the homepage runs the Laya harness.
 
 ## Scope
 
