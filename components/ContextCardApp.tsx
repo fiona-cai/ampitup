@@ -90,8 +90,6 @@ export default function ContextCardApp() {
         </p>
       )}
 
-      <PerDiemHook />
-
       {!trip.connected ? (
         <ConnectPanel onConnect={() => send({ action: "connect" })} busy={busy === "connect"} />
       ) : !trip.synced ? (
@@ -148,42 +146,6 @@ function Header({ trip, onReset, busy }: { trip: TripResponse; onReset: () => vo
         )}
       </div>
     </header>
-  );
-}
-
-function PerDiemHook() {
-  const meals = [
-    { label: "Breakfast", policy: 20, spent: 0 },
-    { label: "Lunch", policy: 30, spent: 0 },
-    { label: "Dinner", policy: 50, spent: 100 },
-  ];
-  return (
-    <section className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6">
-      <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">The problem with per diems</p>
-      <h2 className="mt-2 max-w-2xl text-2xl font-semibold tracking-tight">
-        Policy says $50 for dinner. The card allows $100.
-      </h2>
-      <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-        Meal limits are tracked per day, not per meal. Skip breakfast and lunch, and the whole $100 pool goes on one
-        solo dinner. It passes policy on paper and wastes money in practice.
-      </p>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        {meals.map((meal) => (
-          <div key={meal.label} className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm font-medium">{meal.label}</span>
-              <span className="text-xs text-zinc-500">policy {formatMoney(meal.policy)}</span>
-            </div>
-            <div className="mt-3 text-2xl font-semibold tabular-nums">
-              {meal.spent === 0 ? <span className="text-zinc-300">skipped</span> : formatMoney(meal.spent)}
-            </div>
-            {meal.spent > meal.policy && (
-              <p className="mt-1 text-xs text-red-700">{formatMoney(meal.spent - meal.policy)} over the meal policy, still approved</p>
-            )}
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -698,7 +660,6 @@ function SavingsSummary({ summary }: { summary: TripSummary }) {
           </tbody>
         </table>
       </div>
-      <p className="mt-6 text-base font-medium">Every dollar tied to a purpose. Every expense report written by the calendar.</p>
     </section>
   );
 }
