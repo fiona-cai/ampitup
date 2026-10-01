@@ -78,21 +78,21 @@ export type Employee = {
   name: string;
   email: string;
   company: string;
+  homeCity: string;
 };
 
-export type TripInfo = {
-  name: string;
-  city: string;
+export type SyncWindow = {
+  label: string;
   start: string;
   end: string;
 };
 
-export type TripState = {
+export type AppState = {
   connected: boolean;
   synced: boolean;
   pricer: "claude" | "policy" | "mixed" | null;
   employee: Employee;
-  trip: TripInfo;
+  window: SyncWindow;
   events: PricedEvent[];
   charges: ChargeAttempt[];
 };
@@ -100,19 +100,19 @@ export type TripState = {
 export type DayRow = {
   date: string;
   label: string;
-  pool: number;
-  mealNeed: number;
-  shortfall: number;
-  idle: number;
+  travelCity: string | null;
+  perDiem: number;
+  budgeted: number;
+  reimbursed: number;
+  unused: number;
 };
 
-export type TripSummary = {
+export type SpendSummary = {
   days: DayRow[];
-  perDiemPool: number;
-  mealShortfall: number;
-  transport: number;
-  perDiemReimbursements: number;
-  perDiemTrueCost: number;
+  travelDays: number;
+  perDiems: number;
+  reimbursed: number;
+  todayCost: number;
   contextCard: number;
   saved: number;
   contextReimbursements: number;
@@ -121,6 +121,6 @@ export type TripSummary = {
   narrative: string;
 };
 
-export type TripResponse = TripState & {
-  summary: TripSummary | null;
+export type AppResponse = AppState & {
+  summary: SpendSummary | null;
 };

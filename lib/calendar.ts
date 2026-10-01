@@ -12,17 +12,17 @@ type GoogleEvent = {
   attendees?: GoogleAttendee[];
 };
 
-function inferCity(text: string): string {
+function inferCity(text: string, homeCity: string): string {
   const haystack = text.toLowerCase();
   if (/waterloo|pearson|\byyz\b/.test(haystack)) return "Waterloo";
   if (/chicago/.test(haystack)) return "Chicago";
   if (/new york|nyc|manhattan|brooklyn|midtown|flatiron|gramercy|javits|laguardia|\blga\b/.test(haystack)) {
     return "New York";
   }
-  return "New York";
+  return homeCity;
 }
 
-function mapEvent(item: GoogleEvent, index: number): CalendarEvent | null {
+function mapEvent(item: GoogleEvent, index: number, homeCity: string): CalendarEvent | null {
   const start = item.start?.dateTime ?? (item.start?.date ? `${item.start.date}T09:00:00-04:00` : "");
   const end = item.end?.dateTime ?? (item.end?.date ? `${item.end.date}T17:00:00-04:00` : "");
   if (!item.summary || !start || !end) return null;
@@ -39,12 +39,12 @@ function mapEvent(item: GoogleEvent, index: number): CalendarEvent | null {
     location: item.location ?? "",
     start,
     end,
-    city: inferCity(`${item.location ?? ""} ${item.summary}`),
+    city: inferCity(`${item.location ?? ""} ${item.summary}`, homeCity),
     attendees,
   };
 }
 
-export async function loadCalendar(): Promise<CalendarEvent[]> {
+export async function loadCalendar(homeCity: string): Promise<CalendarEvent[]> {
   if (process.env.CALENDAR_SOURCE !== "google" || !process.env.GOOGLE_ACCESS_TOKEN) {
     return seedEvents();
   }
@@ -65,7 +65,7 @@ export async function loadCalendar(): Promise<CalendarEvent[]> {
     if (!response.ok) return seedEvents();
     const body = (await response.json()) as { items?: GoogleEvent[] };
     const events = (body.items ?? [])
-      .map(mapEvent)
+      .map((item, index) => mapEvent(item, index, homeCity))
       .filter((event): event is CalendarEvent => event !== null);
     return events.length > 0 ? events : seedEvents();
   } catch {

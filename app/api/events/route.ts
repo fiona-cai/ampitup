@@ -5,7 +5,7 @@ import { clampAmount } from "@/lib/price";
 import { approveBudgeted, authorize, createLimit } from "@/lib/ramp";
 import { blankState, readState, writeState } from "@/lib/store";
 import { summarize } from "@/lib/summary";
-import type { ApprovalStatus, PricedEvent, TripResponse, TripState } from "@/lib/types";
+import type { AppResponse, AppState, ApprovalStatus, PricedEvent } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,10 +19,10 @@ class HttpError extends Error {
   }
 }
 
-function present(state: TripState): TripResponse {
+function present(state: AppState): AppResponse {
   return {
     ...state,
-    summary: state.synced ? summarize(state.events) : null,
+    summary: state.synced ? summarize(state.events, state.employee.homeCity) : null,
   };
 }
 
@@ -61,7 +61,7 @@ function applyApproval(event: PricedEvent, approval: ApprovalStatus): PricedEven
   return { ...event, approval, limit: null };
 }
 
-async function handle(body: Record<string, unknown>): Promise<TripState> {
+async function handle(body: Record<string, unknown>): Promise<AppState> {
   const action = body.action;
   if (action === "reset") return writeState(blankState());
 
@@ -73,7 +73,7 @@ async function handle(body: Record<string, unknown>): Promise<TripState> {
   }
 
   if (action === "sync") {
-    const events = await loadCalendar();
+    const events = await loadCalendar(state.employee.homeCity);
     const priced = await priceEvents(events);
     return writeState({
       ...state,
@@ -93,7 +93,7 @@ async function handle(body: Record<string, unknown>): Promise<TripState> {
     }
     const eventId = typeof body.eventId === "string" ? body.eventId : "";
     const index = state.events.findIndex((event) => event.event.id === eventId);
-    if (index < 0) throw new HttpError(400, "That event is not on this trip.");
+    if (index < 0) throw new HttpError(400, "That event is not on this calendar.");
 
     let next = state.events[index];
     if (typeof body.amount === "number") next = applyAmount(next, body.amount);
@@ -113,7 +113,7 @@ async function handle(body: Record<string, unknown>): Promise<TripState> {
     }
     if (Number.isNaN(new Date(time).getTime())) throw new HttpError(400, "That charge time is not valid.");
     if (!state.events.some((event) => event.approval === "approved")) {
-      throw new HttpError(400, "Approve the trip before trying a charge.");
+      throw new HttpError(400, "Approve at least one budget before trying a charge.");
     }
     const result = authorize(state.events, { amount, time, merchant });
     state.events = result.events;

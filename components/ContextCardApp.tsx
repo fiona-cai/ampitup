@@ -3,16 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { peopleLine } from "@/lib/attendees";
 import { RULE_LABELS } from "@/lib/jev";
+import { sameCity } from "@/lib/policy";
 import { chargePresets } from "@/lib/presets";
-import { dayKey, formatDayKey, formatMoney, formatTime, formatTripRange } from "@/lib/time";
-import type { ChargeAttempt, PricedEvent, TripResponse, TripSummary } from "@/lib/types";
+import { dayKey, formatDayKey, formatMoney, formatTime, formatRange } from "@/lib/time";
+import type { AppResponse, ChargeAttempt, PricedEvent, SpendSummary } from "@/lib/types";
 
 type Action = Record<string, unknown> & { action: string };
 
 const SYNC_STEP_MS = 140;
 
 export default function ContextCardApp() {
-  const [trip, setTrip] = useState<TripResponse | null>(null);
+  const [state, setState] = useState<AppResponse | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(0);
@@ -21,15 +22,15 @@ export default function ContextCardApp() {
     setBusy(body.action);
     setError(null);
     try {
-      const response = await fetch("/api/trip", {
+      const response = await fetch("/api/events", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Request failed.");
-      setTrip(data as TripResponse);
-      return data as TripResponse;
+      setState(data as AppResponse);
+      return data as AppResponse;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Request failed.");
       return null;
@@ -40,15 +41,15 @@ export default function ContextCardApp() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/trip")
+    fetch("/api/events")
       .then((response) => response.json())
-      .then((data: TripResponse) => {
+      .then((data: AppResponse) => {
         if (cancelled) return;
-        setTrip(data);
+        setState(data);
         setRevealed(data.events.length);
       })
       .catch(() => {
-        if (!cancelled) setError("Could not load the trip.");
+        if (!cancelled) setError("Could not load your calendar.");
       });
     return () => {
       cancelled = true;
@@ -56,10 +57,10 @@ export default function ContextCardApp() {
   }, []);
 
   useEffect(() => {
-    if (!trip || revealed >= trip.events.length) return;
+    if (!state || revealed >= state.events.length) return;
     const timer = setTimeout(() => setRevealed((count) => count + 1), SYNC_STEP_MS);
     return () => clearTimeout(timer);
-  }, [trip, revealed]);
+  }, [state, revealed]);
 
   const sync = async () => {
     setRevealed(0);
@@ -71,7 +72,7 @@ export default function ContextCardApp() {
     await send({ action: "reset" });
   };
 
-  if (!trip) {
+  if (!state) {
     return (
       <main className="mx-auto flex w-full max-w-5xl flex-1 items-center justify-center p-8 text-sm text-zinc-500">
         {error ?? "Loading…"}
@@ -79,25 +80,25 @@ export default function ContextCardApp() {
     );
   }
 
-  const syncing = busy === "sync" || (trip.synced && revealed < trip.events.length);
+  const syncing = busy === "sync" || (state.synced && revealed < state.events.length);
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-5 pb-24 pt-8 sm:px-8">
-      <Header trip={trip} onReset={reset} busy={busy !== null} />
+      <Header state={state} onReset={reset} busy={busy !== null} />
       {error && (
         <p role="alert" className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
         </p>
       )}
 
-      {!trip.connected ? (
+      {!state.connected ? (
         <ConnectPanel onConnect={() => send({ action: "connect" })} busy={busy === "connect"} />
-      ) : !trip.synced ? (
-        <SyncPanel trip={trip} onSync={sync} busy={busy === "sync"} />
+      ) : !state.synced ? (
+        <SyncPanel state={state} onSync={sync} busy={busy === "sync"} />
       ) : (
         <>
-          <TripView
-            trip={trip}
+          <EventsView
+            state={state}
             revealed={revealed}
             syncing={syncing}
             busy={busy}
@@ -106,8 +107,8 @@ export default function ContextCardApp() {
           />
           {!syncing && (
             <>
-              <ChargePanel trip={trip} busy={busy === "charge"} onCharge={(body) => send({ action: "charge", ...body })} />
-              {trip.summary && <SavingsSummary summary={trip.summary} />}
+              <ChargePanel state={state} busy={busy === "charge"} onCharge={(body) => send({ action: "charge", ...body })} />
+              {state.summary && <SavingsSummary summary={state.summary} />}
             </>
           )}
         </>
@@ -116,7 +117,7 @@ export default function ContextCardApp() {
   );
 }
 
-function Header({ trip, onReset, busy }: { trip: TripResponse; onReset: () => void; busy: boolean }) {
+function Header({ state, onReset, busy }: { state: AppResponse; onReset: () => void; busy: boolean }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-3">
@@ -129,12 +130,12 @@ function Header({ trip, onReset, busy }: { trip: TripResponse; onReset: () => vo
         </div>
       </div>
       <div className="flex items-center gap-3 text-sm">
-        {trip.connected && (
+        {state.connected && (
           <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-zinc-600">
-            {trip.employee.email}
+            {state.employee.email}
           </span>
         )}
-        {(trip.connected || trip.synced) && (
+        {(state.connected || state.synced) && (
           <button
             type="button"
             onClick={onReset}
@@ -171,16 +172,16 @@ function ConnectPanel({ onConnect, busy }: { onConnect: () => void; busy: boolea
   );
 }
 
-function SyncPanel({ trip, onSync, busy }: { trip: TripResponse; onSync: () => void; busy: boolean }) {
+function SyncPanel({ state, onSync, busy }: { state: AppResponse; onSync: () => void; busy: boolean }) {
   return (
     <section className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-6">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Upcoming trip</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Your calendar</p>
         <h2 className="mt-1 text-lg font-semibold">
-          {trip.trip.name} · {formatTripRange(trip.trip.start, trip.trip.end)}
+          {state.window.label} · {formatRange(state.window.start, state.window.end)}
         </h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Sync pulls the next 7 days. Jev decides which events need money, then Claude sets each budget.
+          Sync pulls every event in the next 7 days, at home or on the road. Jev decides which ones need money, then Claude sets each budget.
         </p>
       </div>
       <button
@@ -197,15 +198,15 @@ function SyncPanel({ trip, onSync, busy }: { trip: TripResponse; onSync: () => v
 
 type DecideBody = { eventId?: string; all?: boolean; approval?: string; amount?: number };
 
-function TripView({
-  trip,
+function EventsView({
+  state,
   revealed,
   syncing,
   busy,
   onResync,
   onDecide,
 }: {
-  trip: TripResponse;
+  state: AppResponse;
   revealed: number;
   syncing: boolean;
   busy: string | null;
@@ -213,13 +214,13 @@ function TripView({
   onDecide: (body: DecideBody) => void;
 }) {
   const groups = new Map<string, PricedEvent[]>();
-  for (const event of trip.events.slice(0, revealed)) {
+  for (const event of state.events.slice(0, revealed)) {
     const key = dayKey(event.event.start);
     groups.set(key, [...(groups.get(key) ?? []), event]);
   }
   const days = [...groups.entries()];
 
-  const budgeted = trip.events.filter((event) => event.budget);
+  const budgeted = state.events.filter((event) => event.budget);
   const pending = budgeted.filter((event) => event.approval === "pending");
   const approvedTotal = budgeted
     .filter((event) => event.approval === "approved")
@@ -233,13 +234,13 @@ function TripView({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-            Trip · {trip.events.length} events
+            {state.events.length} events
           </p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight">
-            {trip.trip.name} · {formatTripRange(trip.trip.start, trip.trip.end)}
+            {state.window.label} · {formatRange(state.window.start, state.window.end)}
           </h2>
           <p className="mt-1 text-sm text-zinc-600">
-            {syncing ? "Reading the calendar…" : <PricerNote pricer={trip.pricer} />}
+            {syncing ? "Reading the calendar…" : <PricerNote pricer={state.pricer} />}
           </p>
         </div>
         {!syncing && (
@@ -258,7 +259,7 @@ function TripView({
               disabled={busy !== null || pending.length === 0}
               className="rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:bg-zinc-300"
             >
-              {pending.length === 0 ? `Approved · ${formatMoney(approvedTotal)}` : `Approve trip · ${formatMoney(plannedTotal)}`}
+              {pending.length === 0 ? `Approved · ${formatMoney(approvedTotal)}` : `Approve all · ${formatMoney(plannedTotal)}`}
             </button>
           </div>
         )}
@@ -267,13 +268,16 @@ function TripView({
       <div className="mt-5 space-y-6">
         {days.map(([key, events]) => (
           <div key={key}>
-            <h3 className="mb-2 text-sm font-medium text-zinc-500">{formatDayKey(key)}</h3>
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-500">
+              {formatDayKey(key)}
+              <DayPlace events={events} homeCity={state.employee.homeCity} />
+            </h3>
             <ul className="space-y-2">
               {events.map((event) => (
                 <EventCard
                   key={event.event.id}
                   item={event}
-                  selfEmail={trip.employee.email}
+                  selfEmail={state.employee.email}
                   disabled={busy !== null || syncing}
                   onDecide={onDecide}
                 />
@@ -286,7 +290,17 @@ function TripView({
   );
 }
 
-function PricerNote({ pricer }: { pricer: TripResponse["pricer"] }) {
+function DayPlace({ events, homeCity }: { events: PricedEvent[]; homeCity: string }) {
+  const away = events.find((event) => !sameCity(event.event.city, homeCity));
+  if (!away) return <span className="text-xs font-normal text-zinc-400">{homeCity}</span>;
+  return (
+    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">
+      Travel · {away.event.city}
+    </span>
+  );
+}
+
+function PricerNote({ pricer }: { pricer: AppResponse["pricer"] }) {
   if (pricer === "claude") return <>Budgets set by Claude and clamped to policy in code.</>;
   if (pricer === "mixed") return <>Budgets set by Claude, with policy rates where the model call failed.</>;
   return <>Budgets from policy rates. Add an Anthropic API key to have Claude set them.</>;
@@ -459,27 +473,22 @@ function StatusPill({ status }: { status: PricedEvent["approval"] }) {
   return <span className="px-1 text-zinc-400">Pending</span>;
 }
 
-const CHARGE_DAYS = [
-  { key: "2026-10-06", label: "Tue Oct 6" },
-  { key: "2026-10-07", label: "Wed Oct 7" },
-  { key: "2026-10-08", label: "Thu Oct 8" },
-];
-
 function ChargePanel({
-  trip,
+  state,
   busy,
   onCharge,
 }: {
-  trip: TripResponse;
+  state: AppResponse;
   busy: boolean;
   onCharge: (body: { amount: number; time: string; merchant: string }) => void;
 }) {
+  const chargeDays = [...new Set(state.events.map((event) => dayKey(event.event.start)))].sort();
   const [amount, setAmount] = useState("40");
-  const [day, setDay] = useState(CHARGE_DAYS[0].key);
+  const [day, setDay] = useState(chargeDays[0] ?? "");
   const [clock, setClock] = useState("12:30");
   const [merchant, setMerchant] = useState("Joe's Pizza");
 
-  const approved = trip.events.some((event) => event.approval === "approved");
+  const approved = state.events.some((event) => event.approval === "approved");
 
   return (
     <section className="mt-10 rounded-2xl border border-zinc-200 bg-white p-6">
@@ -509,7 +518,7 @@ function ChargePanel({
       </div>
 
       {!approved ? (
-        <p className="mt-4 text-sm text-zinc-500">Approve the trip to create card limits.</p>
+        <p className="mt-4 text-sm text-zinc-500">Approve budgets to create card limits.</p>
       ) : (
         <form
           onSubmit={(submit) => {
@@ -540,14 +549,14 @@ function ChargePanel({
               onChange={(change) => setDay(change.target.value)}
               className="rounded-md border border-zinc-300 px-2 py-1.5"
             >
-              {CHARGE_DAYS.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
+              {chargeDays.map((key) => (
+                <option key={key} value={key}>
+                  {formatDayKey(key)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Time (NYC)">
+          <Field label="Time (ET)">
             <input
               type="time"
               value={clock}
@@ -565,9 +574,9 @@ function ChargePanel({
         </form>
       )}
 
-      {trip.charges.length > 0 && (
+      {state.charges.length > 0 && (
         <ul className="mt-5 space-y-2">
-          {trip.charges.map((charge) => (
+          {state.charges.map((charge) => (
             <ChargeRow key={charge.id} charge={charge} />
           ))}
         </ul>
@@ -607,16 +616,16 @@ function ChargeRow({ charge }: { charge: ChargeAttempt }) {
   );
 }
 
-function SavingsSummary({ summary }: { summary: TripSummary }) {
+function SavingsSummary({ summary }: { summary: SpendSummary }) {
+  const todayNote =
+    summary.travelDays > 0
+      ? `${formatMoney(summary.perDiems)} travel per diems + ${formatMoney(summary.reimbursed)} reimbursed`
+      : `${formatMoney(summary.reimbursed)} reimbursed`;
   return (
     <section className="mt-10 rounded-2xl bg-zinc-900 p-6 text-white">
-      <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Trip summary</p>
+      <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">This week</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        <Stat
-          label="Per diem, true cost"
-          value={formatMoney(summary.perDiemTrueCost)}
-          note={`${formatMoney(summary.perDiemPool)} pool + ${formatMoney(summary.perDiemReimbursements)} reimbursed`}
-        />
+        <Stat label="Without ContextCard" value={formatMoney(summary.todayCost)} note={todayNote} />
         <Stat
           label="ContextCard"
           value={formatMoney(summary.contextCard)}
@@ -637,23 +646,28 @@ function SavingsSummary({ summary }: { summary: TripSummary }) {
           <thead className="text-xs text-zinc-400">
             <tr>
               <th className="py-2 font-normal">Day</th>
-              <th className="py-2 text-right font-normal">Per diem pool</th>
-              <th className="py-2 text-right font-normal">Meals that needed money</th>
-              <th className="py-2 text-right font-normal">Out of pocket</th>
-              <th className="py-2 text-right font-normal">Unused</th>
+              <th className="py-2 text-right font-normal">ContextCard</th>
+              <th className="py-2 text-right font-normal">Per diem</th>
+              <th className="py-2 text-right font-normal">Reimbursed</th>
+              <th className="py-2 text-right font-normal">Unused per diem</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/10">
             {summary.days.map((day) => (
               <tr key={day.date}>
-                <td className="py-2">{day.label}</td>
-                <td className="py-2 text-right">{formatMoney(day.pool)}</td>
-                <td className="py-2 text-right">{formatMoney(day.mealNeed)}</td>
-                <td className={`py-2 text-right ${day.shortfall > 0 ? "text-amber-300" : "text-zinc-500"}`}>
-                  {formatMoney(day.shortfall)}
+                <td className="py-2">
+                  {day.label}
+                  <span className="ml-2 text-xs text-zinc-500">{day.travelCity ?? "home"}</span>
                 </td>
-                <td className={`py-2 text-right ${day.idle > 0 ? "text-lime-300" : "text-zinc-500"}`}>
-                  {formatMoney(day.idle)}
+                <td className="py-2 text-right">{formatMoney(day.budgeted)}</td>
+                <td className={`py-2 text-right ${day.perDiem > 0 ? "" : "text-zinc-500"}`}>
+                  {day.perDiem > 0 ? formatMoney(day.perDiem) : "—"}
+                </td>
+                <td className={`py-2 text-right ${day.reimbursed > 0 ? "text-amber-300" : "text-zinc-500"}`}>
+                  {formatMoney(day.reimbursed)}
+                </td>
+                <td className={`py-2 text-right ${day.unused > 0 ? "text-lime-300" : "text-zinc-500"}`}>
+                  {formatMoney(day.unused)}
                 </td>
               </tr>
             ))}

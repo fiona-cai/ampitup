@@ -1,6 +1,6 @@
 # ContextCard
 
-ContextCard gives every business event its own right-sized budget, so spend matches the purpose of the event instead of a daily allowance.
+ContextCard gives every business event its own right-sized budget, so spend matches the purpose of the event instead of a daily allowance. That covers a client lunch across town, a team dinner, or a week on the road.
 
 It reads the calendar, decides which events need company money, prices each one, and turns each approved budget into a card limit that is only open around that event.
 
@@ -13,9 +13,9 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The demo runs end to end with no keys: sign in, sync, approve the trip, then try the `$90 at 1:00 PM` charge against the $25 lunch.
+Open [http://localhost:3000](http://localhost:3000). The demo runs end to end with no keys: sign in, sync, approve all, then try the `$90 at 1:00 PM` charge against the $25 lunch.
 
-`Reset demo` in the header clears the trip. State is kept in `data/state.json`, which is gitignored.
+`Reset demo` in the header clears everything. State is kept in `data/state.json`, which is gitignored.
 
 ```bash
 npm test
@@ -30,28 +30,29 @@ All optional. Create `.env.local`:
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=claude-sonnet-4-5
 
-# Pull the next 7 days from a real Google Calendar instead of the seeded trip.
+# Pull the next 7 days from a real Google Calendar instead of the seeded week.
 CALENDAR_SOURCE=google
 GOOGLE_ACCESS_TOKEN=
 ```
 
-The Google token needs the `calendar.readonly` scope. If the call fails or returns no events, sync falls back to the seeded New York trip.
+The Google token needs the `calendar.readonly` scope. If the call fails or returns no events, sync falls back to the seeded week. Events with no recognizable city are treated as being in the employee's home city.
 
 ## How a budget is decided
 
 1. **Jev** (`lib/jev.ts`) decides whether an event needs money at all. Clear cases are rules: prepaid or catered events, meals included in registration, focus blocks, and internal meetings get no budget, while rides and named meals do. Anything left is scored on external attendees, a meal-time start, and a physical location. Vague titles like "catch up" are flagged low confidence and default to the standard per diem.
 2. **Claude** (`lib/price.ts`) sets the amount for events that pass Jev. It receives only the fields needed to price the event and returns JSON with an amount and a one-line reason.
 3. **Policy clamp.** The cap is computed in code from `data/policy.json`, and every amount is clamped to it, including manager edits. The model can't exceed policy.
-4. **Review.** A manager can approve the whole trip, or approve, edit, or reject single events.
-5. **Enforce** (`lib/ramp.ts`). Each approved budget becomes a mock Ramp spend limit that opens 45 minutes before a meal (30 before a ride) and closes 90 minutes after (45 after a ride). A charge can only spend the limit open at that moment, so a lunch can't borrow from a dinner.
+4. **Review.** A manager can approve everything at once, or approve, edit, or reject single events.
+5. **Compare** (`lib/summary.ts`). Without ContextCard, a travel day gets a flat per diem and everything else is paid out of pocket and reimbursed. Days at home have no per diem, so the difference there is no reimbursements.
+6. **Enforce** (`lib/ramp.ts`). Each approved budget becomes a mock Ramp spend limit that opens 45 minutes before a meal (30 before a ride) and closes 90 minutes after (45 after a ride). A charge can only spend the limit open at that moment, so a lunch can't borrow from a dinner.
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `app/api/trip/route.ts` | Connect, sync, decide, charge, reset |
-| `components/ContextCardApp.tsx` | Trip view, approval, charge simulator, savings summary |
-| `lib/seed.ts` | Seeded 3-day New York trip |
+| `app/api/events/route.ts` | Connect, sync, decide, charge, reset |
+| `components/ContextCardApp.tsx` | Event view, approval, charge simulator, savings summary |
+| `lib/seed.ts` | Seeded week: client lunch and team dinner at home in Waterloo, plus a 3-day New York visit |
 | `lib/calendar.ts` | Google Calendar `events.list` sync |
-| `lib/summary.ts` | Per diem vs. ContextCard totals |
+| `lib/summary.ts` | ContextCard vs. reimbursements, plus per diems on travel days |
 | `data/policy.json` | Meal caps, client entertainment cap, city rates |

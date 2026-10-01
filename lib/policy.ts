@@ -18,3 +18,8 @@ export function cityRate(city: string): CityRate {
   const key = CITY_ALIASES[city.trim().toLowerCase()] ?? "default";
   return policy.cities[key];
 }
+
+export function sameCity(a: string, b: string): boolean {
+  const normalize = (city: string) => CITY_ALIASES[city.trim().toLowerCase()] ?? city.trim().toLowerCase();
+  return normalize(a) === normalize(b);
+}

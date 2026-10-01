@@ -1,8 +1,8 @@
-export const TRIP_TZ = "America/New_York";
+export const LOCAL_TZ = "America/New_York";
 
-export function hourInTrip(iso: string): number {
+export function localHour(iso: string): number {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TRIP_TZ,
+    timeZone: LOCAL_TZ,
     hour: "2-digit",
     hourCycle: "h23",
   }).formatToParts(new Date(iso));
@@ -11,7 +11,7 @@ export function hourInTrip(iso: string): number {
 
 export function dayKey(iso: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TRIP_TZ,
+    timeZone: LOCAL_TZ,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -24,7 +24,7 @@ export function dayKey(iso: string): string {
 export type MealSlot = "breakfast" | "lunch" | "dinner";
 
 export function mealSlot(iso: string): MealSlot | null {
-  const hour = hourInTrip(iso);
+  const hour = localHour(iso);
   if (hour >= 6 && hour < 10) return "breakfast";
   if (hour >= 11 && hour < 15) return "lunch";
   if (hour >= 17 && hour < 22) return "dinner";
@@ -41,7 +41,7 @@ export function formatMoney(amount: number): string {
 
 export function formatTime(iso: string): string {
   return new Intl.DateTimeFormat("en-US", {
-    timeZone: TRIP_TZ,
+    timeZone: LOCAL_TZ,
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(iso));
@@ -49,21 +49,21 @@ export function formatTime(iso: string): string {
 
 export function formatDayKey(key: string): string {
   return new Intl.DateTimeFormat("en-US", {
-    timeZone: TRIP_TZ,
+    timeZone: LOCAL_TZ,
     weekday: "short",
     month: "short",
     day: "numeric",
   }).format(new Date(`${key}T15:00:00Z`));
 }
 
-export function formatTripRange(start: string, end: string): string {
+export function formatRange(start: string, end: string): string {
   const startLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: TRIP_TZ,
+    timeZone: LOCAL_TZ,
     month: "short",
     day: "numeric",
   }).format(new Date(start));
   const endLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: TRIP_TZ,
+    timeZone: LOCAL_TZ,
     month: "short",
     day: "numeric",
   }).format(new Date(end));

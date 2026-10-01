@@ -7,7 +7,7 @@ import { chargePresets } from "./presets";
 import { approveBudgeted, authorize } from "./ramp";
 import { seedEvents } from "./seed";
 import { summarize } from "./summary";
-import { dayKey, hourInTrip } from "./time";
+import { dayKey, localHour } from "./time";
 import type { CalendarEvent } from "./types";
 
 const byId = (events: CalendarEvent[], id: string) => {
@@ -16,9 +16,9 @@ const byId = (events: CalendarEvent[], id: string) => {
   return event;
 };
 
-describe("trip clock", () => {
+describe("local clock", () => {
   it("reads New York wall time", () => {
-    assert.equal(hourInTrip("2026-10-06T12:45:00-04:00"), 12);
+    assert.equal(localHour("2026-10-06T12:45:00-04:00"), 12);
     assert.equal(dayKey("2026-10-06T12:45:00-04:00"), "2026-10-06");
   });
 });
@@ -103,7 +103,7 @@ describe("Jev", () => {
 describe("policy clamp", () => {
   const events = seedEvents();
 
-  it("prices the seeded trip under the cap", () => {
+  it("prices seeded events under the cap", () => {
     const dinner = byId(events, "acme-dinner");
     const quote = quoteFromPolicy(dinner, jevGate(dinner));
     assert.equal(quote.amount, 240);
@@ -132,24 +132,46 @@ describe("policy clamp", () => {
   });
 });
 
-describe("seeded trip", () => {
+describe("seeded week", () => {
+  it("budgets home events as well as travel", async () => {
+    const events = seedEvents();
+    const lumen = byId(events, "lumen-lunch");
+    const lumenQuote = quoteFromPolicy(lumen, jevGate(lumen));
+    assert.equal(jevGate(lumen).rule, "client_meal");
+    assert.equal(lumenQuote.amount, 80);
+    assert.equal(lumenQuote.reason, "2 attendees × $40, Waterloo");
+
+    const team = byId(events, "team-dinner");
+    assert.equal(jevGate(team).rule, "team_meal");
+    assert.equal(quoteFromPolicy(team, jevGate(team)).amount, 175);
+
+    const coffee = byId(events, "candidate-coffee");
+    assert.equal(jevGate(coffee).category, "client_coffee");
+    assert.equal(quoteFromPolicy(coffee, jevGate(coffee)).amount, 20);
+
+    assert.equal(jevGate(byId(events, "monday-standup")).needsBudget, false);
+  });
+
   it("matches the demo totals and declines a pooled lunch charge", async () => {
     const priced = await priceEvents(seedEvents());
-    assert.equal(priced.filter((event) => event.budget).length, 6);
-    assert.equal(priced.filter((event) => !event.budget).length, 6);
+    assert.equal(priced.filter((event) => event.budget).length, 9);
+    assert.equal(priced.filter((event) => !event.budget).length, 7);
 
-    const summary = summarize(priced);
-    assert.equal(summary.perDiemPool, 300);
-    assert.equal(summary.mealShortfall, 165);
-    assert.equal(summary.transport, 120);
-    assert.equal(summary.perDiemReimbursements, 285);
-    assert.equal(summary.perDiemTrueCost, 585);
-    assert.equal(summary.contextCard, 455);
+    const summary = summarize(priced, "Waterloo");
+    assert.equal(summary.travelDays, 3);
+    assert.deepEqual(
+      summary.days.map((day) => day.travelCity),
+      [null, "New York", "New York", "New York", null],
+    );
+    assert.equal(summary.perDiems, 300);
+    assert.equal(summary.reimbursed, 560);
+    assert.equal(summary.todayCost, 860);
+    assert.equal(summary.contextCard, 730);
     assert.equal(summary.saved, 130);
     assert.equal(summary.contextReimbursements, 0);
     assert.equal(
       summary.saved,
-      summary.days.reduce((sum, day) => sum + day.idle, 0),
+      summary.days.reduce((sum, day) => sum + day.unused, 0),
     );
 
     const approved = approveBudgeted(priced);
@@ -167,6 +189,14 @@ describe("seeded trip", () => {
     assert.equal(accepted.charge.eventTitle, "Dinner with Acme");
     assert.match(accepted.charge.detail, /\$60 left/);
     assert.match(accepted.charge.report ?? "", /receipt matched/);
+
+    const local = authorize(approved, {
+      amount: 40,
+      time: "2026-10-05T12:30:00-04:00",
+      merchant: "Proof Kitchen",
+    });
+    assert.equal(local.charge.result, "approved");
+    assert.equal(local.charge.eventTitle, "Lunch with Lumen Health");
   });
 
   it("keeps more when a low-confidence event is rejected", async () => {
@@ -174,8 +204,8 @@ describe("seeded trip", () => {
     const rejected = priced.map((event) =>
       event.event.id === "catch-up" ? { ...event, approval: "rejected" as const } : event,
     );
-    const summary = summarize(rejected);
-    assert.equal(summary.contextCard, 405);
+    const summary = summarize(rejected, "Waterloo");
+    assert.equal(summary.contextCard, 680);
     assert.equal(summary.saved, 180);
   });
 });
