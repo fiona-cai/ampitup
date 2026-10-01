@@ -12,7 +12,7 @@ type Action = Record<string, unknown> & { action: string };
 
 const SYNC_STEP_MS = 140;
 
-export default function ContextCardApp() {
+export default function AllotApp() {
   const [state, setState] = useState<AppResponse | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -122,10 +122,10 @@ function Header({ state, onReset, busy }: { state: AppResponse; onReset: () => v
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-900 text-sm font-semibold text-lime-300">
-          CC
+          A
         </div>
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">ContextCard</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Allot</h1>
           <p className="text-xs text-zinc-500">Every dollar tied to a purpose</p>
         </div>
       </div>
@@ -156,7 +156,7 @@ function ConnectPanel({ onConnect, busy }: { onConnect: () => void; busy: boolea
       <div>
         <h2 className="text-lg font-semibold">Connect your calendar</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          ContextCard asks for read-only calendar access. Only the fields needed to price an event are sent to the model.
+          Allot asks for read-only calendar access. Only the fields needed to price an event are sent to the model.
         </p>
       </div>
       <button
@@ -625,17 +625,17 @@ function SavingsSummary({ summary }: { summary: SpendSummary }) {
     <section className="mt-10 rounded-2xl bg-zinc-900 p-6 text-white">
       <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">This week</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        <Stat label="Without ContextCard" value={formatMoney(summary.todayCost)} note={todayNote} />
+        <Stat label="Without Allot" value={formatMoney(summary.todayCost)} note={todayNote} />
         <Stat
-          label="ContextCard"
-          value={formatMoney(summary.contextCard)}
+          label="Allot"
+          value={formatMoney(summary.allotted)}
           note={`${summary.budgetedEvents} budgets · ${summary.noBudgetEvents} events at $0`}
           accent
         />
         <Stat
           label="Saved"
           value={formatMoney(summary.saved)}
-          note={`${formatMoney(summary.contextReimbursements)} reimbursements filed`}
+          note={`${formatMoney(summary.allotReimbursements)} reimbursements filed`}
           accent
         />
       </div>
@@ -646,7 +646,7 @@ function SavingsSummary({ summary }: { summary: SpendSummary }) {
           <thead className="text-xs text-zinc-400">
             <tr>
               <th className="py-2 font-normal">Day</th>
-              <th className="py-2 text-right font-normal">ContextCard</th>
+              <th className="py-2 text-right font-normal">Allot</th>
               <th className="py-2 text-right font-normal">Per diem</th>
               <th className="py-2 text-right font-normal">Reimbursed</th>
               <th className="py-2 text-right font-normal">Unused per diem</th>

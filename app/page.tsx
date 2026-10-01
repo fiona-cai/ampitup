@@ -1,5 +1,5 @@
-import ContextCardApp from "@/components/ContextCardApp";
+import AllotApp from "@/components/AllotApp";
 
 export default function Home() {
-  return <ContextCardApp />;
+  return <AllotApp />;
 }

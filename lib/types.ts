@@ -113,9 +113,9 @@ export type SpendSummary = {
   perDiems: number;
   reimbursed: number;
   todayCost: number;
-  contextCard: number;
+  allotted: number;
   saved: number;
-  contextReimbursements: number;
+  allotReimbursements: number;
   budgetedEvents: number;
   noBudgetEvents: number;
   narrative: string;

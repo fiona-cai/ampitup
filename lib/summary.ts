@@ -7,7 +7,7 @@ function activeBudget(event: PricedEvent): number {
   return event.budget.amount;
 }
 
-// Without ContextCard, travel days get a flat per diem for meals and everything else is paid out of pocket
+// Without Allot, travel days get a flat per diem for meals and everything else is paid out of pocket
 // and reimbursed. Real costs get paid either way; the gap is per diem money that no event needed.
 export function summarize(events: PricedEvent[], homeCity: string): SpendSummary {
   const dates = [...new Set(events.map((event) => dayKey(event.event.start)))].sort();
@@ -38,7 +38,7 @@ export function summarize(events: PricedEvent[], homeCity: string): SpendSummary
   const perDiems = days.reduce((sum, day) => sum + day.perDiem, 0);
   const reimbursed = days.reduce((sum, day) => sum + day.reimbursed, 0);
   const todayCost = perDiems + reimbursed;
-  const contextCard = events.reduce((sum, event) => sum + activeBudget(event), 0);
+  const allotted = events.reduce((sum, event) => sum + activeBudget(event), 0);
   const travelDays = days.filter((day) => day.travelCity).length;
   const budgetedEvents = events.filter((event) => event.budget && event.approval !== "rejected").length;
 
@@ -51,11 +51,11 @@ export function summarize(events: PricedEvent[], homeCity: string): SpendSummary
     perDiems,
     reimbursed,
     todayCost,
-    contextCard,
-    saved: todayCost - contextCard,
-    contextReimbursements: 0,
+    allotted,
+    saved: todayCost - allotted,
+    allotReimbursements: 0,
     budgetedEvents,
     noBudgetEvents: events.length - budgetedEvents,
-    narrative: `Without ContextCard, this week costs ${perDiemPart}${formatMoney(reimbursed)} in reimbursements. With it, ${formatMoney(contextCard)} is funded up front against named events and nobody files an expense report.`,
+    narrative: `Without Allot, this week costs ${perDiemPart}${formatMoney(reimbursed)} in reimbursements. With it, ${formatMoney(allotted)} is funded up front against named events and nobody files an expense report.`,
   };
 }

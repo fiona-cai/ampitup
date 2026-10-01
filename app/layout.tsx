@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ContextCard",
+  title: "Allot",
   description: "Right-sized budgets for every business event",
 };
 

@@ -1,6 +1,6 @@
-# ContextCard
+# Allot
 
-ContextCard gives every business event its own right-sized budget, so spend matches the purpose of the event instead of a daily allowance. That covers a client lunch across town, a team dinner, a coffee with a candidate, or a week on the road.
+Allot gives every business event its own right-sized budget, so spend matches the purpose of the event instead of a daily allowance. That covers a client lunch across town, a team dinner, a coffee with a candidate, or a week on the road.
 
 It reads the employee's calendar, decides which events need company money, prices each one, and turns each approved budget into a card limit that is only open around that event. Money set aside for one event can't be spent on another, and every charge arrives already matched to the event it was for.
 
@@ -56,7 +56,7 @@ npm run build   # production build
 The seeded calendar belongs to Maya Chen at Northwind, who is based in Waterloo. Her week has events at home on Monday and Friday and a New York visit with the Acme account from Tuesday to Thursday.
 
 1. **Sign in.** "Sign in with Google" connects the demo account. In the demo this step is simulated; see [Configuration](#configuration) for real calendar access.
-2. **Sync.** ContextCard pulls the next 7 days and runs each event through Jev and the pricer. Events appear one at a time, grouped by day. Each day is tagged with the home city or "Travel" and the destination.
+2. **Sync.** Allot pulls the next 7 days and runs each event through Jev and the pricer. Events appear one at a time, grouped by day. Each day is tagged with the home city or "Travel" and the destination.
 3. **Read the cards.** Each event shows whether it got a budget, the amount, a one-line reason, the Jev rule that fired, the policy rule behind the cap, and whether Claude or a policy rate set the amount. Events Jev is unsure about carry a "Low confidence" tag.
 4. **Review.** "Approve all" approves every pending budget. Each card also has Approve, Edit, and Reject. Edits are clamped to the policy cap, and setting an amount to $0 rejects the budget.
 5. **Charge.** Once budgets are approved, every card shows the window its limit is open. Try the two presets:
@@ -64,7 +64,7 @@ The seeded calendar belongs to Maya Chen at Northwind, who is based in Waterloo.
    - **$180 at 7:30 PM on Tuesday** is approved against the Acme dinner, leaving $60 on that limit, and produces an expense report line.
 
    The form below the presets takes any merchant, amount, day, and time.
-6. **Summary.** The dark panel at the bottom compares the week with and without ContextCard, day by day.
+6. **Summary.** The dark panel at the bottom compares the week with and without Allot, day by day.
 
 "Reset demo" in the header clears all state.
 
@@ -197,7 +197,7 @@ Spend accumulates, so two charges against the same dinner share its limit. The l
 
 ## Savings summary
 
-`lib/summary.ts` compares the week against how spend works without ContextCard:
+`lib/summary.ts` compares the week against how spend works without Allot:
 
 - **Travel days** (any event outside the home city) get a flat $100 per diem for meals. Meal spend above the per diem, and all transport, is paid out of pocket and reimbursed.
 - **Home days** have no per diem, so every budgeted event is paid out of pocket and reimbursed.
@@ -210,12 +210,12 @@ For the seeded week:
 | --- | --- |
 | Travel per diems (3 days × $100) | $300 |
 | Reimbursements | $560 |
-| **Without ContextCard** | **$860** |
-| **ContextCard** | **$730** |
+| **Without Allot** | **$860** |
+| **Allot** | **$730** |
 | Saved | $130 |
-| Reimbursements filed with ContextCard | $0 |
+| Reimbursements filed with Allot | $0 |
 
-Rejecting the low-confidence "Catch up with Jordan" budget lowers ContextCard to $680, and savings rise to $180.
+Rejecting the low-confidence "Catch up with Jordan" budget lowers Allot to $680, and savings rise to $180.
 
 ## Configuration
 
@@ -270,12 +270,12 @@ State is stored in `data/state.json`, which is gitignored. Writes are queued so 
 | --- | --- |
 | `app/page.tsx` | Renders the app |
 | `app/api/events/route.ts` | The API: connect, sync, decide, charge, reset |
-| `components/ContextCardApp.tsx` | Event view, review controls, charge simulator, summary |
+| `components/AllotApp.tsx` | Event view, review controls, charge simulator, summary |
 | `lib/jev.ts` | Jev rules and scorer |
 | `lib/price.ts` | Claude pricing, policy-rate fallback, caps, and clamp |
 | `lib/pipeline.ts` | Runs Jev and pricing over a list of events |
 | `lib/ramp.ts` | Mock spend limits and charge authorization |
-| `lib/summary.ts` | With vs. without ContextCard totals |
+| `lib/summary.ts` | With vs. without Allot totals |
 | `lib/calendar.ts` | Google Calendar sync |
 | `lib/seed.ts` | Demo employee and seeded week |
 | `lib/policy.ts` | Policy loader and city lookup |

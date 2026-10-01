@@ -166,9 +166,9 @@ describe("seeded week", () => {
     assert.equal(summary.perDiems, 300);
     assert.equal(summary.reimbursed, 560);
     assert.equal(summary.todayCost, 860);
-    assert.equal(summary.contextCard, 730);
+    assert.equal(summary.allotted, 730);
     assert.equal(summary.saved, 130);
-    assert.equal(summary.contextReimbursements, 0);
+    assert.equal(summary.allotReimbursements, 0);
     assert.equal(
       summary.saved,
       summary.days.reduce((sum, day) => sum + day.unused, 0),
@@ -205,7 +205,7 @@ describe("seeded week", () => {
       event.event.id === "catch-up" ? { ...event, approval: "rejected" as const } : event,
     );
     const summary = summarize(rejected, "Waterloo");
-    assert.equal(summary.contextCard, 680);
+    assert.equal(summary.allotted, 680);
     assert.equal(summary.saved, 180);
   });
 });
