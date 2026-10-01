@@ -1,0 +1,198 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Allot//Synthetic October 2 Demo//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Allot synthetic demo - October 2
+X-WR-TIMEZONE:America/Toronto
+BEGIN:VTIMEZONE
+TZID:America/Toronto
+X-LIC-LOCATION:America/Toronto
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:allot-demo-20261002-01@allot.example
+DTSTAMP:20261001T234838Z
+SEQUENCE:0
+DTSTART;TZID=America/Toronto:20261002T080000
+DTEND;TZID=America/Toronto:20261002T083000
+SUMMARY:Solo breakfast
+DESCRIPTION:Synthetic Allot demo fixture. No real guests or invitations.\nA
+  separate breakfast budget\; unused funds cannot fund dinner.\nTotal atten
+ dees: 1\; external attendees: 0.\nExpense facts (amounts in minor units): 
+ [{"category":"meal"\,"coverage":"not_covered"\,"estimatedAmountMinor":1500
+ \,"beneficiaryCount":1\,"notes":"Synthetic breakfast"}]\nScope: work\; att
+ endance: accepted\; source status: confirmed.\nImportance: normal\; diffic
+ ulty: low.\nLocation mode: in_person\; city: Waterloo\; country: CA\; trav
+ el minutes: 10.\nSource start: 2026-10-02T08:00:00-04:00\; end: 2026-10-02
+ T08:30:00-04:00\; time zone: America/Toronto.
+LOCATION:Morning Cafe
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+CLASS:PRIVATE
+X-ALLOT-SYNTHETIC:TRUE
+END:VEVENT
+BEGIN:VEVENT
+UID:allot-demo-20261002-02@allot.example
+DTSTAMP:20261001T234838Z
+SEQUENCE:0
+DTSTART;TZID=America/Toronto:20261002T090000
+DTEND;TZID=America/Toronto:20261002T093000
+SUMMARY:Product standup
+DESCRIPTION:Synthetic Allot demo fixture. No real guests or invitations.\nI
+ nternal meeting with no planned spending.\nTotal attendees: 5\; external a
+ ttendees: 0.\nExpense facts (amounts in minor units): []\nScope: work\; at
+ tendance: accepted\; source status: confirmed.\nImportance: normal\; diffi
+ culty: moderate.\nLocation mode: virtual\; city: Waterloo\; country: CA\; 
+ travel minutes: 0.\nSource start: 2026-10-02T09:00:00-04:00\; end: 2026-10
+ -02T09:30:00-04:00\; time zone: America/Toronto.
+LOCATION:Google Meet
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+CLASS:PRIVATE
+X-ALLOT-SYNTHETIC:TRUE
+END:VEVENT
+BEGIN:VEVENT
+UID:allot-demo-20261002-03@allot.example
+DTSTAMP:20261001T234838Z
+SEQUENCE:0
+DTSTART;TZID=America/Toronto:20261002T120000
+DTEND;TZID=America/Toronto:20261002T130000
+SUMMARY:Client lunch with Cedar Labs
+DESCRIPTION:Synthetic Allot demo fixture. No real guests or invitations.\nM
+ eet two client guests to plan a pilot.\nTotal attendees: 3\; external atte
+ ndees: 2.\nExpense facts (amounts in minor units): [{"category":"meal"\,"c
+ overage":"not_covered"\,"estimatedAmountMinor":9000\,"beneficiaryCount":3\
+ ,"notes":"Synthetic client meal"}]\nScope: work\; attendance: accepted\; s
+ ource status: confirmed.\nImportance: high\; difficulty: moderate.\nLocati
+ on mode: in_person\; city: Waterloo\; country: CA\; travel minutes: 15.\nS
+ ource start: 2026-10-02T12:00:00-04:00\; end: 2026-10-02T13:00:00-04:00\; 
+ time zone: America/Toronto.
+LOCATION:Uptown Bistro
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+CLASS:PRIVATE
+X-ALLOT-SYNTHETIC:TRUE
+END:VEVENT
+BEGIN:VEVENT
+UID:allot-demo-20261002-04@allot.example
+DTSTAMP:20261001T234838Z
+SEQUENCE:0
+DTSTART;TZID=America/Toronto:20261002T140000
+DTEND;TZID=America/Toronto:20261002T150000
+SUMMARY:Catered partner workshop
+DESCRIPTION:Synthetic Allot demo fixture. No real guests or invitations.\nT
+ he host provides lunch\; no meal budget required.\nTotal attendees: 6\; ex
+ ternal attendees: 3.\nExpense facts (amounts in minor units): [{"category"
+ :"meal"\,"coverage":"provided"\,"estimatedAmountMinor":0\,"beneficiaryCoun
+ t":6\,"notes":"Host-provided catering"}]\nScope: work\; attendance: accept
+ ed\; source status: confirmed.\nImportance: high\; difficulty: high.\nLoca
+ tion mode: in_person\; city: Waterloo\; country: CA\; travel minutes: 10.\
+ nSource start: 2026-10-02T14:00:00-04:00\; end: 2026-10-02T15:00:00-04:00\
+ ; time zone: America/Toronto.
+LOCATION:Cedar Labs office
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+CLASS:PRIVATE
+X-ALLOT-SYNTHETIC:TRUE
+END:VEVENT
+BEGIN:VEVENT
+UID:allot-demo-20261002-05@allot.example
+DTSTAMP:20261001T234838Z
+SEQUENCE:0
+DTSTART;TZID=America/Toronto:20261002T171500
+DTEND;TZID=America/Toronto:20261002T174500
+SUMMARY:Taxi to partner dinner
+DESCRIPTION:Synthetic Allot demo fixture. No real guests or invitations.\nT
+ ravel to a work dinner across town.\nTotal attendees: 1\; external attende
+ es: 0.\nExpense facts (amounts in minor units): [{"category":"transport"\,
+ "coverage":"not_covered"\,"estimatedAmountMinor":3200\,"beneficiaryCount":
+ 1\,"notes":"Synthetic taxi estimate"}]\nScope: work\; attendance: accepted
+ \; source status: confirmed.\nImportance: normal\; difficulty: low.\nLocat
+ ion mode: in_person\; city: Waterloo\; country: CA\; travel minutes: 20.\n
+ Source start: 2026-10-02T17:15:00-04:00\; end: 2026-10-02T17:45:00-04:00\;
+  time zone: America/Toronto.
+LOCATION:Waterloo station
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+CLASS:PRIVATE
+X-ALLOT-SYNTHETIC:TRUE
+END:VEVENT
+BEGIN:VEVENT
+UID:allot-demo-20261002-06@allot.example
+DTSTAMP:20261001T234838Z
+SEQUENCE:0
+DTSTART;TZID=America/Toronto:20261002T180000
+DTEND;TZID=America/Toronto:20261002T193000
+SUMMARY:Partner dinner
+DESCRIPTION:Synthetic Allot demo fixture. No real guests or invitations.\nD
+ inner is its own budget\; breakfast cannot be reassigned.\nTotal attendees
+ : 4\; external attendees: 3.\nExpense facts (amounts in minor units): [{"c
+ ategory":"meal"\,"coverage":"not_covered"\,"estimatedAmountMinor":16000\,"
+ beneficiaryCount":4\,"notes":"Synthetic partner dinner"}]\nScope: work\; a
+ ttendance: accepted\; source status: confirmed.\nImportance: high\; diffic
+ ulty: moderate.\nLocation mode: in_person\; city: Waterloo\; country: CA\;
+  travel minutes: 5.\nSource start: 2026-10-02T18:00:00-04:00\; end: 2026-1
+ 0-02T19:30:00-04:00\; time zone: America/Toronto.
+LOCATION:River House
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+CLASS:PRIVATE
+X-ALLOT-SYNTHETIC:TRUE
+END:VEVENT
+BEGIN:VEVENT
+UID:allot-demo-20261002-07@allot.example
+DTSTAMP:20261001T234838Z
+SEQUENCE:0
+DTSTART;TZID=America/Toronto:20261002T100000
+DTEND;TZID=America/Toronto:20261002T103000
+SUMMARY:Cancelled prospect coffee
+DESCRIPTION:Synthetic Allot demo fixture. No real guests or invitations.\nC
+ ancelled event must not receive a company budget.\nTotal attendees: 2\; ex
+ ternal attendees: 1.\nExpense facts (amounts in minor units): [{"category"
+ :"coffee"\,"coverage":"not_covered"\,"estimatedAmountMinor":2000\,"benefic
+ iaryCount":2\,"notes":"Cancelled synthetic coffee"}]\nScope: work\; attend
+ ance: accepted\; source status: cancelled.\nImportance: normal\; difficult
+ y: low.\nLocation mode: in_person\; city: Waterloo\; country: CA\; travel 
+ minutes: 10.\nSource start: 2026-10-02T10:00:00-04:00\; end: 2026-10-02T10
+ :30:00-04:00\; time zone: America/Toronto.
+LOCATION:Station Coffee
+STATUS:CANCELLED
+TRANSP:TRANSPARENT
+CLASS:PRIVATE
+X-ALLOT-SYNTHETIC:TRUE
+END:VEVENT
+BEGIN:VEVENT
+UID:allot-demo-20261002-08@allot.example
+DTSTAMP:20261001T234838Z
+SEQUENCE:0
+DTSTART;TZID=America/Toronto:20261002T160000
+DTEND;TZID=America/Toronto:20261002T164500
+SUMMARY:Catch-up with Jordan
+DESCRIPTION:Synthetic Allot demo fixture. No real guests or invitations.\nE
+ xpense coverage is not known yet\; route to review.\nTotal attendees: 2\; 
+ external attendees: 1.\nExpense facts (amounts in minor units): null\nScop
+ e: work\; attendance: tentative\; source status: tentative.\nImportance: u
+ nknown\; difficulty: unknown.\nLocation mode: in_person\; city: Waterloo\;
+  country: CA\; travel minutes: 10.\nSource start: 2026-10-02T16:00:00-04:0
+ 0\; end: 2026-10-02T16:45:00-04:00\; time zone: America/Toronto.
+LOCATION:Uptown
+STATUS:TENTATIVE
+TRANSP:OPAQUE
+CLASS:PRIVATE
+X-ALLOT-SYNTHETIC:TRUE
+END:VEVENT
+END:VCALENDAR
