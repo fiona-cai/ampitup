@@ -78,8 +78,11 @@ export type Employee = {
   name: string;
   email: string;
   company: string;
+  companyDomain: string;
   homeCity: string;
 };
+
+export type CalendarSource = "google" | "sample";
 
 export type SyncWindow = {
   label: string;
@@ -93,6 +96,8 @@ export type AppState = {
   pricer: "claude" | "policy" | "mixed" | null;
   employee: Employee;
   window: SyncWindow;
+  source: CalendarSource;
+  sourceNote: string | null;
   events: PricedEvent[];
   charges: ChargeAttempt[];
 };
@@ -123,4 +128,6 @@ export type SpendSummary = {
 
 export type AppResponse = AppState & {
   summary: SpendSummary | null;
+  googleConfigured: boolean;
+  googleAccount: string | null;
 };

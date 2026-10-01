@@ -4,13 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import { peopleLine } from "@/lib/attendees";
 import { RULE_LABELS } from "@/lib/jev";
 import { sameCity } from "@/lib/policy";
-import { chargePresets } from "@/lib/presets";
+import { buildPresets } from "@/lib/presets";
+import { demoEmployee } from "@/lib/seed";
 import { dayKey, formatDayKey, formatMoney, formatTime, formatRange } from "@/lib/time";
 import type { AppResponse, ChargeAttempt, PricedEvent, SpendSummary } from "@/lib/types";
 
 type Action = Record<string, unknown> & { action: string };
 
 const SYNC_STEP_MS = 140;
+
+const GOOGLE_ERRORS: Record<string, string> = {
+  access_denied: "Google sign-in was cancelled.",
+  not_configured: "Google sign-in isn't set up. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.local.",
+  state_mismatch: "Google sign-in expired or was opened in another tab. Try again.",
+  missing_code: "Google didn't return a sign-in code. Try again.",
+  token_exchange_failed: "Google sign-in failed. Check the client secret and redirect URI, then try again.",
+};
 
 export default function AllotApp() {
   const [state, setState] = useState<AppResponse | null>(null);
@@ -41,12 +50,18 @@ export default function AllotApp() {
 
   useEffect(() => {
     let cancelled = false;
+    const params = new URLSearchParams(window.location.search);
+    const googleError = params.get("google_error");
+    if (googleError) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
     fetch("/api/events")
       .then((response) => response.json())
       .then((data: AppResponse) => {
         if (cancelled) return;
         setState(data);
         setRevealed(data.events.length);
+        if (googleError) setError(GOOGLE_ERRORS[googleError] ?? `Google sign-in failed (${googleError}).`);
       })
       .catch(() => {
         if (!cancelled) setError("Could not load your calendar.");
@@ -72,6 +87,11 @@ export default function AllotApp() {
     await send({ action: "reset" });
   };
 
+  const signOut = async () => {
+    setRevealed(0);
+    await send({ action: "signout" });
+  };
+
   if (!state) {
     return (
       <main className="mx-auto flex w-full max-w-5xl flex-1 items-center justify-center p-8 text-sm text-zinc-500">
@@ -84,7 +104,7 @@ export default function AllotApp() {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-5 pb-24 pt-8 sm:px-8">
-      <Header state={state} onReset={reset} busy={busy !== null} />
+      <Header state={state} onReset={reset} onSignOut={signOut} busy={busy !== null} />
       {error && (
         <p role="alert" className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
@@ -92,7 +112,11 @@ export default function AllotApp() {
       )}
 
       {!state.connected ? (
-        <ConnectPanel onConnect={() => send({ action: "connect" })} busy={busy === "connect"} />
+        <ConnectPanel
+          googleConfigured={state.googleConfigured}
+          onConnect={() => send({ action: "connect" })}
+          busy={busy === "connect"}
+        />
       ) : !state.synced ? (
         <SyncPanel state={state} onSync={sync} busy={busy === "sync"} />
       ) : (
@@ -117,7 +141,17 @@ export default function AllotApp() {
   );
 }
 
-function Header({ state, onReset, busy }: { state: AppResponse; onReset: () => void; busy: boolean }) {
+function Header({
+  state,
+  onReset,
+  onSignOut,
+  busy,
+}: {
+  state: AppResponse;
+  onReset: () => void;
+  onSignOut: () => void;
+  busy: boolean;
+}) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-3">
@@ -145,12 +179,32 @@ function Header({ state, onReset, busy }: { state: AppResponse; onReset: () => v
             Reset demo
           </button>
         )}
+        {state.googleAccount && (
+          <button
+            type="button"
+            onClick={onSignOut}
+            disabled={busy}
+            className="rounded-full px-3 py-1 text-zinc-500 hover:bg-zinc-200/60 hover:text-zinc-900 disabled:opacity-50"
+          >
+            Sign out
+          </button>
+        )}
       </div>
     </header>
   );
 }
 
-function ConnectPanel({ onConnect, busy }: { onConnect: () => void; busy: boolean }) {
+function ConnectPanel({
+  googleConfigured,
+  onConnect,
+  busy,
+}: {
+  googleConfigured: boolean;
+  onConnect: () => void;
+  busy: boolean;
+}) {
+  const buttonClass =
+    "flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-5 py-2.5 text-sm font-medium shadow-sm hover:bg-zinc-50 disabled:opacity-50";
   return (
     <section className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-6">
       <div>
@@ -158,16 +212,23 @@ function ConnectPanel({ onConnect, busy }: { onConnect: () => void; busy: boolea
         <p className="mt-1 text-sm text-zinc-600">
           Allot asks for read-only calendar access. Only the fields needed to price an event are sent to the model.
         </p>
+        {!googleConfigured && (
+          <p className="mt-2 text-xs text-zinc-400">
+            Google sign-in isn&apos;t set up, so this uses the sample account.
+          </p>
+        )}
       </div>
-      <button
-        type="button"
-        onClick={onConnect}
-        disabled={busy}
-        className="flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-5 py-2.5 text-sm font-medium shadow-sm hover:bg-zinc-50 disabled:opacity-50"
-      >
-        <GoogleMark />
-        {busy ? "Connecting…" : "Sign in with Google"}
-      </button>
+      {googleConfigured ? (
+        <a href="/api/auth/google" className={buttonClass}>
+          <GoogleMark />
+          Sign in with Google
+        </a>
+      ) : (
+        <button type="button" onClick={onConnect} disabled={busy} className={buttonClass}>
+          <GoogleMark />
+          {busy ? "Connecting…" : "Continue with the sample account"}
+        </button>
+      )}
     </section>
   );
 }
@@ -229,6 +290,8 @@ function EventsView({
     .filter((event) => event.approval !== "rejected")
     .reduce((sum, event) => sum + (event.budget?.amount ?? 0), 0);
 
+  const viewer = state.source === "sample" ? demoEmployee : state.employee;
+
   return (
     <section className="mt-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -265,6 +328,12 @@ function EventsView({
         )}
       </div>
 
+      {state.sourceNote && !syncing && (
+        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          {state.sourceNote}
+        </p>
+      )}
+
       <div className="mt-5 space-y-6">
         {days.map(([key, events]) => (
           <div key={key}>
@@ -277,7 +346,8 @@ function EventsView({
                 <EventCard
                   key={event.event.id}
                   item={event}
-                  selfEmail={state.employee.email}
+                  selfEmail={viewer.email}
+                  companyDomain={viewer.companyDomain}
                   disabled={busy !== null || syncing}
                   onDecide={onDecide}
                 />
@@ -309,11 +379,13 @@ function PricerNote({ pricer }: { pricer: AppResponse["pricer"] }) {
 function EventCard({
   item,
   selfEmail,
+  companyDomain,
   disabled,
   onDecide,
 }: {
   item: PricedEvent;
   selfEmail: string;
+  companyDomain: string;
   disabled: boolean;
   onDecide: (body: DecideBody) => void;
 }) {
@@ -348,7 +420,7 @@ function EventCard({
             )}
           </div>
           <p className="mt-1 text-xs text-zinc-500">
-            {[event.location, peopleLine(event, selfEmail)].filter(Boolean).join(" · ")}
+            {[event.location, peopleLine(event, selfEmail, companyDomain)].filter(Boolean).join(" · ")}
           </p>
           <p className={`mt-2 text-sm ${muted ? "text-zinc-500" : "text-zinc-700"}`}>
             {budget ? budget.reason : jev.reason}
@@ -489,6 +561,7 @@ function ChargePanel({
   const [merchant, setMerchant] = useState("Joe's Pizza");
 
   const approved = state.events.some((event) => event.approval === "approved");
+  const presets = buildPresets(state.events);
 
   return (
     <section className="mt-10 rounded-2xl border border-zinc-200 bg-white p-6">
@@ -502,7 +575,7 @@ function ChargePanel({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {chargePresets.map((preset) => (
+          {presets.map((preset) => (
             <button
               key={preset.id}
               type="button"

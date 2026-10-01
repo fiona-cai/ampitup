@@ -10,7 +10,8 @@
     "test": "tsx --test lib/*.test.ts",
     "harness": "uv run --project protocol python protocol/harness.py",
     "data:sample": "uv run --project protocol python protocol/sample_data.py",
-    "test:protocol": "uv run --project protocol python -m unittest discover -s protocol -p 'test_*.py'"
+    "test:protocol": "uv run --project protocol python -m unittest discover -s protocol -p 'test_*.py'",
+    "seed:google": "tsx scripts/seed-google-calendar.ts"
   },
   "dependencies": {
     "next": "16.3.8",

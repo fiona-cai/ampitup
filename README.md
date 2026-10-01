@@ -55,18 +55,18 @@ npm run build   # production build
 
 The seeded calendar belongs to Maya Chen at Northwind, who is based in Waterloo. Her week has events at home on Monday and Friday and a New York visit with the Acme account from Tuesday to Thursday.
 
-1. **Sign in.** "Sign in with Google" connects the demo account. In the demo this step is simulated; see [Configuration](#configuration) for real calendar access.
+1. **Sign in.** With Google set up, "Sign in with Google" connects a real account; see [Google sign-in](#google-sign-in). Without it, "Continue with the sample account" loads the sample week.
 2. **Sync.** Allot pulls the next 7 days and runs each event through Jev and the pricer. Events appear one at a time, grouped by day. Each day is tagged with the home city or "Travel" and the destination.
 3. **Read the cards.** Each event shows whether it got a budget, the amount, a one-line reason, the Jev rule that fired, the policy rule behind the cap, and whether Claude or a policy rate set the amount. Events Jev is unsure about carry a "Low confidence" tag.
 4. **Review.** "Approve all" approves every pending budget. Each card also has Approve, Edit, and Reject. Edits are clamped to the policy cap, and setting an amount to $0 rejects the budget.
-5. **Charge.** Once budgets are approved, every card shows the window its limit is open. Try the two presets:
+5. **Charge.** Once budgets are approved, every card shows the window its limit is open. Two preset charges are built from the calendar: one that overspends the first solo meal and one that fits inside the biggest meal. On the sample week they are:
    - **$90 at 1:00 PM on Tuesday** is declined: "Solo lunch is capped at $25. This card can't borrow from Dinner with Acme."
    - **$180 at 7:30 PM on Tuesday** is approved against the Acme dinner, leaving $60 on that limit, and produces an expense report line.
 
    The form below the presets takes any merchant, amount, day, and time.
 6. **Summary.** The dark panel at the bottom compares the week with and without Allot, day by day.
 
-"Reset demo" in the header clears all state.
+"Reset demo" in the header clears events and charges. When signed in with Google, "Sign out" also disconnects the account.
 
 ### What the seeded week produces
 
@@ -219,41 +219,108 @@ Rejecting the low-confidence "Catch up with Jordan" budget lowers Allot to $680,
 
 ## Configuration
 
-Everything is optional. Create `.env.local`:
+Everything is optional. Copy `.env.example` to `.env.local` and fill in what you need, then restart `npm run dev`.
 
 ```bash
-# Claude sets budget amounts. Without a key, policy rates are used.
-ANTHROPIC_API_KEY=
-ANTHROPIC_MODEL=claude-sonnet-4-5
-
-# Pull the next 7 days from a real Google Calendar instead of the seeded week.
-CALENDAR_SOURCE=google
-GOOGLE_ACCESS_TOKEN=
+cp .env.example .env.local
 ```
 
-**Google Calendar.** The token needs the `calendar.readonly` scope. Sync calls `events.list` on the primary calendar from now to 7 days out, with recurring events expanded, up to 50 events. All-day events are treated as 9 AM to 5 PM. Each event's city is inferred from its location and title, and anything unrecognized is treated as the employee's home city. If the call fails or returns nothing, sync falls back to the seeded week.
+| Variable | What it does |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | Claude sets budget amounts. Without it, policy rates are used |
+| `ANTHROPIC_MODEL` | Defaults to `claude-sonnet-4-5` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Turns on real Google sign-in and calendar sync |
+| `GOOGLE_REDIRECT_URI` | Defaults to `<current origin>/api/auth/google/callback` |
+| `COMPANY_DOMAIN` | Email domain that counts as internal. Defaults to the signed-in user's domain |
+| `COMPANY_NAME` | Display name for the company |
+| `HOME_CITY` | Days with every event in this city are home days. Defaults to Waterloo |
 
-To get a token for testing, use the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) with the `https://www.googleapis.com/auth/calendar.readonly` scope. Tokens expire after about an hour.
+### Google sign-in
 
-**Demo employee.** The employee name, email, company, and home city are in `lib/seed.ts`. The company domain used to tell internal from external attendees is `companyDomain` in `data/policy.json`.
+Without Google credentials the sign-in button reads "Continue with the sample account" and loads the sample week.
+
+**1. Set up Google Cloud (once, about 10 minutes)**
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project.
+2. Go to **APIs & Services → Library**, search for **Google Calendar API**, and click **Enable**.
+3. Go to **APIs & Services → OAuth consent screen** (called **Google Auth Platform** in newer consoles):
+   - Audience: **External**, publishing status **Testing**.
+   - Add the scopes `openid`, `email`, `profile`, `.../auth/calendar.readonly`, and `.../auth/calendar.events`. The last one is only used by the seed script.
+   - Under **Test users**, add every Google account that will sign in: your own, your teammates', and the demo account.
+4. Go to **Credentials → Create credentials → OAuth client ID**:
+   - Application type: **Web application**.
+   - Authorized redirect URI: `http://localhost:3000/api/auth/google/callback`. Add one for each other origin you use, such as a deployed URL.
+5. Copy the client ID and secret into `.env.local` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+In Testing mode, Google shows an "unverified app" warning on the consent screen. Click **Continue**. Only listed test users can sign in, and refresh tokens expire after 7 days, so sign in again if sync starts showing the sample week.
+
+**2. Sign in**
+
+Click **Sign in with Google** and approve read-only calendar access. You're sent back to the app signed in, with your email in the header. **Sync calendar** then reads your real next 7 days.
+
+**3. Load the sample week onto a real calendar (for the demo)**
+
+A live sync of a real calendar is unpredictable. For the demo, sign in with a dedicated Google account and copy the sample week onto it:
+
+```bash
+# 1. Grant write access once, in the browser:
+open http://localhost:3000/api/auth/google?write=1
+
+# 2. Copy the 16 sample events, starting tomorrow:
+npm run seed:google
+
+# Or pick the first day, or remove the seeded events:
+npm run seed:google -- --start 2026-10-12
+npm run seed:google -- --clear
+```
+
+The script tags every event it creates, so running it again replaces the old copies instead of duplicating them. It never sends invitations. Teammates are added as plus-addresses of your own mailbox, such as `you+priya@gmail.com`, so they count as internal. Clients get `.example` addresses, such as `elena.voss@acme.example`, so they count as external. Times are set in Eastern time.
+
+After seeding, click **Sign out**, then sign in again without `?write=1`, so the app itself only holds read access.
+
+### How sync reads a Google Calendar
+
+- Sync reads the primary calendar from now to 7 days out, with recurring events expanded, up to 50 events.
+- Cancelled events, events you declined, and meeting rooms in the attendee list are skipped. HTML in descriptions is stripped.
+- All-day events are treated as 9 AM to 5 PM.
+- Each event's city is inferred from its location and title. Anything unrecognized is treated as the home city, so put a city name such as "New York" in the location of travel events.
+- Attendees on the company domain are internal and everyone else is external. On a personal Gmail account, that means other Gmail users count as internal, so set `COMPANY_DOMAIN` if that matters.
+- If Google rejects the request, the calendar is empty, or Google can't be reached, sync falls back to the sample week and shows why above the events.
+
+### How tokens are handled
+
+- The sign-in flow uses a random `state` value, stored in an HTTP-only cookie for 10 minutes, to reject forged callbacks.
+- Access and refresh tokens are written to `data/google.json` with owner-only permissions. They are gitignored and never sent to the browser.
+- Access tokens are refreshed automatically when they're within a minute of expiring.
+- **Sign out** deletes `data/google.json` and revokes the token with Google. **Reset demo** clears events and charges but keeps you signed in.
+
+### Without OAuth
+
+For a quick test without setting up an OAuth client, set `CALENDAR_SOURCE=google` and `GOOGLE_ACCESS_TOKEN` to a token from the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) with the `calendar.readonly` scope. Tokens from the Playground expire after about an hour. A signed-in account takes priority over this token.
+
+**Sample employee.** The sample week belongs to the employee in `lib/seed.ts`, whose company domain is `northwind.co`.
 
 ## API
 
-Everything goes through one route, `app/api/events/route.ts`.
+The app's data goes through one route, `app/api/events/route.ts`. Google sign-in uses two more:
 
-`GET /api/events` returns the current state: the employee, the sync window, every event with its Jev decision, budget, approval, and limit, recent charges, and the summary once synced.
+- `GET /api/auth/google` redirects to Google's consent screen. Add `?write=1` to also request event write access for the seed script.
+- `GET /api/auth/google/callback` exchanges the code for tokens and redirects back to `/`. On failure it redirects to `/?google_error=<reason>`, and the app shows a message.
+
+`GET /api/events` returns the current state: the employee, the sync window, whether events came from Google or the sample week, every event with its Jev decision, budget, approval, and limit, recent charges, the summary once synced, and whether Google sign-in is configured and connected.
 
 `POST /api/events` takes a JSON body with an `action` and returns the same state:
 
 | Action | Body | Effect |
 | --- | --- | --- |
-| `connect` | — | Marks the calendar as connected |
+| `connect` | — | Uses the sample account, for when Google sign-in isn't set up |
 | `sync` | — | Loads events, runs Jev and pricing, and clears earlier charges |
 | `decide` | `{ "all": true }` | Approves every pending budget |
 | `decide` | `{ "eventId", "approval" }` | Sets one budget to `approved`, `rejected`, or `pending` |
 | `decide` | `{ "eventId", "amount" }` | Edits one budget, clamped to its cap. `0` rejects it |
 | `charge` | `{ "amount", "time", "merchant" }` | Authorizes a charge. `time` is ISO 8601 and `amount` is $1–$10,000 |
-| `reset` | — | Clears all state |
+| `reset` | — | Clears events and charges. Stays signed in to Google |
+| `signout` | — | Revokes and deletes the Google tokens and clears all state |
 
 Errors come back as `{ "error": "..." }`, with status 400 for bad input and 500 for anything unexpected.
 
@@ -269,19 +336,24 @@ State is stored in `data/state.json`, which is gitignored. Writes are queued so 
 | Path | What it is |
 | --- | --- |
 | `app/page.tsx` | Renders the app |
-| `app/api/events/route.ts` | The API: connect, sync, decide, charge, reset |
+| `app/api/events/route.ts` | The API: connect, sync, decide, charge, reset, sign out |
+| `app/api/auth/google/route.ts` | Starts Google sign-in |
+| `app/api/auth/google/callback/route.ts` | Finishes Google sign-in and stores tokens |
 | `components/AllotApp.tsx` | Event view, review controls, charge simulator, summary |
 | `lib/jev.ts` | Jev rules and scorer |
 | `lib/price.ts` | Claude pricing, policy-rate fallback, caps, and clamp |
 | `lib/pipeline.ts` | Runs Jev and pricing over a list of events |
 | `lib/ramp.ts` | Mock spend limits and charge authorization |
 | `lib/summary.ts` | With vs. without Allot totals |
-| `lib/calendar.ts` | Google Calendar sync |
+| `lib/calendar.ts` | Google Calendar sync and event mapping |
+| `lib/google.ts` | OAuth URLs, token exchange, refresh, revoke, token storage |
 | `lib/seed.ts` | Demo employee and seeded week |
 | `lib/policy.ts` | Policy loader and city lookup |
 | `lib/attendees.ts` | Internal vs. external attendees |
 | `lib/time.ts` | Eastern-time formatting and meal slots |
-| `lib/presets.ts` | The two demo charges |
+| `lib/presets.ts` | The two demo charges, built from the calendar |
+| `scripts/seed-google-calendar.ts` | Copies the sample week onto a Google Calendar |
+| `.env.example` | Every environment variable |
 | `lib/store.ts` | Reads and writes `data/state.json` |
 | `lib/types.ts` | Shared types |
 | `data/policy.json` | Caps, per diems, limit windows, city rates |
@@ -312,16 +384,17 @@ npm test
 - home-city events: the client lunch, the team dinner, and the candidate coffee
 - the weekly totals, and that savings equal the unused per diem
 - charge authorization: the declined $90 lunch, the approved $180 dinner, and a charge at home
+- Google event mapping: rooms, HTML descriptions, cancelled and declined events, all-day events, home-city defaults, and internal teammates on the signed-in domain
 
-The tests use policy-rate pricing and never call Claude.
+The tests use policy-rate pricing and never call Claude or Google.
 
 ## Limitations
 
 This is a hackathon build. Not done yet:
 
-- **Sign-in is simulated.** There's no Google OAuth flow; real calendar access uses a token from the environment.
+- **Google app is unverified.** It runs in Testing mode, so only listed test users can sign in, and they have to sign in again every 7 days.
 - **Ramp is mocked.** Limits and authorizations run in `lib/ramp.ts` and have the shape a real spend-limit integration would need.
-- **One demo user.** State is a single JSON file with no accounts or roles. The employee and the manager use the same screen.
+- **One user at a time.** State and Google tokens are single JSON files with no accounts or roles. Whoever signs in last owns the app, and the employee and the manager use the same screen. Tokens on disk would need encryption and a database before real use.
 - **Eastern time only.** Meal times and display use `America/New_York`, and the charge form assumes the `-04:00` offset.
 - **USD only.**
 - **No receipts.** Approved charges produce an expense report line, but there's no receipt upload or export.

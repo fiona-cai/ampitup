@@ -17,8 +17,22 @@ export const demoEmployee: Employee = {
   name: "Maya Chen",
   email: "maya.chen@northwind.co",
   company: "Northwind",
+  companyDomain: "northwind.co",
   homeCity: "Waterloo",
 };
+
+export function employeeFromGoogle(email: string, name: string): Employee {
+  const domain = (process.env.COMPANY_DOMAIN || email.split("@")[1] || "").toLowerCase();
+  return {
+    name,
+    email,
+    company: process.env.COMPANY_NAME || domain,
+    companyDomain: domain,
+    homeCity: process.env.HOME_CITY || demoEmployee.homeCity,
+  };
+}
+
+export const SEED_WEEK_START = "2026-10-05";
 
 export const demoWindow: SyncWindow = {
   label: "Next 7 days",

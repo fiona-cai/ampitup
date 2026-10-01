@@ -3,7 +3,8 @@ import { describe, it } from "node:test";
 import { jevGate } from "./jev";
 import { capFor, clampAmount, quoteFromPolicy } from "./price";
 import { priceEvents } from "./pipeline";
-import { chargePresets } from "./presets";
+import { mapEvent } from "./calendar";
+import { buildPresets } from "./presets";
 import { approveBudgeted, authorize } from "./ramp";
 import { seedEvents } from "./seed";
 import { summarize } from "./summary";
@@ -175,7 +176,11 @@ describe("seeded week", () => {
     );
 
     const approved = approveBudgeted(priced);
-    const lunch = chargePresets[0];
+    const [lunch, dinner] = buildPresets(approved);
+    assert.equal(lunch.label, "$90 at 1:00 PM");
+    assert.equal(lunch.merchant, "Sweetgreen");
+    assert.equal(dinner.label, "$180 at 7:30 PM");
+    assert.equal(dinner.merchant, "Gramercy Tavern");
     const declined = authorize(approved, lunch);
     assert.equal(declined.charge.result, "declined");
     assert.equal(
@@ -183,7 +188,6 @@ describe("seeded week", () => {
       "Declined. Solo lunch is capped at $25. This card can't borrow from Dinner with Acme.",
     );
 
-    const dinner = chargePresets[1];
     const accepted = authorize(approved, dinner);
     assert.equal(accepted.charge.result, "approved");
     assert.equal(accepted.charge.eventTitle, "Dinner with Acme");
@@ -207,5 +211,71 @@ describe("seeded week", () => {
     const summary = summarize(rejected, "Waterloo");
     assert.equal(summary.allotted, 680);
     assert.equal(summary.saved, 180);
+  });
+});
+
+describe("Google Calendar mapping", () => {
+  it("maps a client dinner and drops rooms", () => {
+    const event = mapEvent(
+      {
+        id: "g1",
+        summary: "Dinner with Acme",
+        description: "<p>Q4 <b>rollout</b></p>",
+        location: "Gramercy Tavern, 42 E 20th St, New York",
+        start: { dateTime: "2026-10-06T19:00:00-04:00" },
+        end: { dateTime: "2026-10-06T21:00:00-04:00" },
+        attendees: [
+          { email: "fiona@gmail.com", self: true, responseStatus: "accepted" },
+          { email: "elena@acme.example", displayName: "Elena Voss" },
+          { email: "room-4@resource.calendar.google.com", resource: true },
+        ],
+      },
+      0,
+      "Waterloo",
+    );
+    assert.ok(event);
+    assert.equal(event.city, "New York");
+    assert.equal(event.description, "Q4 rollout");
+    assert.equal(event.attendees.length, 2);
+    assert.equal(jevGate(event, { companyDomain: "gmail.com" }).rule, "client_meal");
+  });
+
+  it("skips cancelled and declined events and defaults to the home city", () => {
+    assert.equal(mapEvent({ summary: "Lunch", status: "cancelled", start: { date: "2026-10-06" }, end: { date: "2026-10-07" } }, 0, "Waterloo"), null);
+    assert.equal(
+      mapEvent(
+        {
+          summary: "Lunch",
+          start: { dateTime: "2026-10-06T12:00:00-04:00" },
+          end: { dateTime: "2026-10-06T13:00:00-04:00" },
+          attendees: [{ email: "fiona@gmail.com", self: true, responseStatus: "declined" }],
+        },
+        0,
+        "Waterloo",
+      ),
+      null,
+    );
+    const allDay = mapEvent({ summary: "Offsite", start: { date: "2026-10-06" }, end: { date: "2026-10-07" } }, 0, "Waterloo");
+    assert.equal(allDay?.city, "Waterloo");
+    assert.equal(allDay?.start, "2026-10-06T09:00:00-04:00");
+  });
+
+  it("treats teammates on the signed-in domain as internal", () => {
+    const standup = mapEvent(
+      {
+        summary: "Team standup",
+        start: { dateTime: "2026-10-06T09:00:00-04:00" },
+        end: { dateTime: "2026-10-06T09:15:00-04:00" },
+        attendees: [
+          { email: "fiona@ramp.example", self: true },
+          { email: "kuan@ramp.example" },
+        ],
+      },
+      0,
+      "Waterloo",
+    );
+    assert.ok(standup);
+    assert.equal(jevGate(standup, { companyDomain: "ramp.example" }).needsBudget, false);
+    assert.equal(jevGate(standup, { companyDomain: "northwind.co" }).needsBudget, true);
   });
 });
