@@ -1,0 +1,69 @@
+lib/summary.ts
+  s_cb36e1b67b0aff::t_0b9f3d0418fc05 1-58
+data/policy.json
+  s_cb36e1b67b0aff::t_fc57e2cb49bc72 1-68
+package.json
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-26
+lib/jev.ts
+  s_cb36e1b67b0aff::t_6ebf2387c00cbc 1-168
+tsconfig.json
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-34
+app/globals.css
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-26
+public/window.svg
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1
+app/layout.tsx
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-29
+app/page.tsx
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-69
+next.config.ts
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-7
+public/file.svg
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1
+lib/types.ts
+  s_cb36e1b67b0aff::t_e8a45606d09a9d 1-126
+lib/time.ts
+  s_cb36e1b67b0aff::t_100e36297102dd 1-75
+public/globe.svg
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1
+eslint.config.mjs
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-18
+lib/policy.ts
+  s_cb36e1b67b0aff::t_f7fedf6a2761dc 1-20
+lib/attendees.ts
+  s_cb36e1b67b0aff::t_5c32249284fdfd 1-20
+lib/seed.ts
+  s_cb36e1b67b0aff::t_b776a1e47a69d2 1-148
+lib/price.ts
+  s_cb36e1b67b0aff::t_c8d1454fcf07d5 1-220
+README.md
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-36
+.gitignore
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-41
+postcss.config.mjs
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1-7
+lib/ramp.ts
+  s_cb36e1b67b0aff::t_878058b9118b78 1-141
+public/next.svg
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1
+public/vercel.svg
+  s_cb36e1b67b0aff::t_6ba132f846f99a 1
+lib/pipeline.ts
+  s_cb36e1b67b0aff::t_55dd16c8647c8d 1-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3281cc0b47808d6ff118f5e2dc84426c531c975c",
+  "prompts": {},
+  "sessions": {
+    "s_cb36e1b67b0aff": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "f3a72ad7-69e0-48c5-82ba-d65d4773e4df",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fiona Cai <69484076+fiona-cai@users.noreply.github.com>"
+    }
+  }
+}
