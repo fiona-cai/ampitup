@@ -51,3 +51,4 @@ __pycache__/
 
 # Google OAuth tokens
 /data/google.json
+/data/jev-memory.json

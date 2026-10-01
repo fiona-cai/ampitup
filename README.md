@@ -34,14 +34,20 @@ The context needed to set the right limit is already on the calendar: who is att
 
 ## Quick start
 
-Requires Node 20 or later.
+Requires Node 20.9 or later. The homepage runs the contextual Laya + Luna demo on Apple Silicon.
 
 ```bash
-npm install
-npm run dev
+npm ci
+./laya/setup.sh
+codex login
+npm run dev -- --hostname 127.0.0.1
 ```
 
-Open [http://localhost:3000](http://localhost:3000). No keys are needed. Without them the app uses a seeded calendar and prices budgets from policy rates, so the demo behaves the same every time.
+Open [http://localhost:3000](http://localhost:3000). Local Laya classifies the supplied calendar; real `gpt-6-luna` calls use your authenticated Codex CLI. Setup requires `uv`, the Hugging Face `hf` CLI, and Codex. There is no fake pricing fallback on the homepage.
+
+The homepage includes the standardized 118-event October snapshot, 500 generated samples, and JSON upload. Change available money, duration, importance, difficulty, attendance, expenses, and feasibility, then allocate again. Record actual spending and feedback to condition future decisions on past assignments. See [the contextual demo guide](docs/contextual-demo.md) for the contract, providers, constraints, and learning behavior.
+
+The earlier policy-rate/Claude demo remains at [http://localhost:3000/classic](http://localhost:3000/classic). The walkthrough and original pipeline below describe that route; it works without model credentials.
 
 Other scripts:
 

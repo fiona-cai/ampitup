@@ -1,5 +1,5 @@
-import AllotApp from "@/components/RampAllotApp";
+import ConditionedDemo from "@/components/ConditionedDemo";
 
 export default function Home() {
-  return <AllotApp />;
+  return <ConditionedDemo />;
 }
