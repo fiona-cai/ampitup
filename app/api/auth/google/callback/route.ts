@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const tokens = await exchangeCode(config, code);
-    writeTokens(tokens);
-    writeState({
+    await writeTokens(tokens);
+    await writeState({
       ...blankState(),
       connected: true,
       employee: employeeFromGoogle(tokens.email, tokens.name),

@@ -7,6 +7,8 @@ import { applyStoredCharge, chargeFingerprint, ChargeConflictError } from "./cha
 import { createLimit } from "./ramp";
 import { reconcileEvents } from "./reconcile";
 import { blankState, readState, writeState } from "./store";
+import { commitStateSnapshot, readStateSnapshot, StateConflictError } from "./store";
+import { compareAndSetJson, readJsonSnapshot } from "./kv";
 import type { AppState, PricedEvent } from "./types";
 
 const time = "2026-10-06T12:00:00-04:00";
@@ -56,7 +58,7 @@ describe("durable charge request idempotency", () => {
     assert.equal(first.state.charges.length, 1);
   });
 
-  it("replays an approval after rejection, disappearance, persistence and recent-history eviction", () => {
+  it("replays an approval after rejection, disappearance, persistence and recent-history eviction", async () => {
     const directory = mkdtempSync(path.join(tmpdir(), "allot-charge-test-"));
     const file = path.join(directory, "state.json");
     try {
@@ -70,8 +72,8 @@ describe("durable charge request idempotency", () => {
       assert.equal(Object.keys(state.chargeRequests ?? {}).length, 16);
       state = { ...state, events: reconcileEvents(state.events, []) };
       assert.equal(state.events[0].approval, "rejected");
-      writeState(state, file);
-      const restored = readState(file);
+      await writeState(state, file);
+      const restored = await readState(file);
       const replay = applyStoredCharge(restored, input);
       assert.equal(replay.replayed, true);
       assert.deepEqual(replay.charge, first.charge);
@@ -109,5 +111,116 @@ describe("durable charge request idempotency", () => {
     const first = applyStoredCharge(fixture(), { ...input, requestId: "__proto__" });
     assert.equal(Object.hasOwn(first.state.chargeRequests!, "__proto__"), true);
     assert.equal(applyStoredCharge(first.state, { ...input, requestId: "__proto__" }).charge.id, first.charge.id);
+  });
+});
+
+describe("whole-state compare-and-set protects independent server instances", () => {
+  it("concurrent distinct charges cannot both consume the same remaining budget", async () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "allot-cas-test-"));
+    const file = path.join(directory, "state.json");
+    try {
+      const initial = fixture();
+      const event = initial.events[0];
+      event.budget = { ...event.budget!, amount: 25, cap: 25 };
+      event.limit = createLimit(event);
+      await writeState(initial, file);
+      // Two independent handlers computed approvals from the same $25 balance.
+      const [firstSnapshot, staleSnapshot] = await Promise.all([readStateSnapshot(file), readStateSnapshot(file)]);
+      const first = applyStoredCharge(firstSnapshot.state, { ...input, amount: 20 });
+      const stale = applyStoredCharge(staleSnapshot.state, { ...input, amount: 20, requestId: "charge-2" });
+      assert.equal(first.charge.result, "approved");
+      assert.equal(stale.charge.result, "approved");
+      await commitStateSnapshot(firstSnapshot, first.state, file);
+      await assert.rejects(() => commitStateSnapshot(staleSnapshot, stale.state, file), StateConflictError);
+      // The losing handler must read and recompute, not resend its stale result.
+      const fresh = await readStateSnapshot(file);
+      const retry = applyStoredCharge(fresh.state, { ...input, amount: 20, requestId: "charge-2" });
+      assert.equal(retry.charge.result, "declined");
+      await commitStateSnapshot(fresh, retry.state, file);
+      const saved = await readState(file);
+      assert.equal(saved.events[0].limit?.spent, 20);
+      assert.equal(Object.keys(saved.chargeRequests ?? {}).length, 2);
+      assert.equal(saved.chargeRequests?.["charge-1"].charge.result, "approved");
+      assert.equal(saved.chargeRequests?.["charge-2"].charge.result, "declined");
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  });
+
+  it("same-ID concurrent handlers converge on one original receipt and one debit", async () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "allot-cas-test-"));
+    const file = path.join(directory, "state.json");
+    try {
+      await writeState(fixture(), file);
+      const [firstSnapshot, staleSnapshot] = await Promise.all([readStateSnapshot(file), readStateSnapshot(file)]);
+      const first = applyStoredCharge(firstSnapshot.state, input);
+      const stale = applyStoredCharge(staleSnapshot.state, input);
+      await commitStateSnapshot(firstSnapshot, first.state, file);
+      await assert.rejects(() => commitStateSnapshot(staleSnapshot, stale.state, file), StateConflictError);
+      const fresh = await readStateSnapshot(file);
+      const retry = applyStoredCharge(fresh.state, input);
+      assert.equal(retry.replayed, true);
+      assert.deepEqual(retry.charge, first.charge);
+      await commitStateSnapshot(fresh, retry.state, file);
+      const saved = await readState(file);
+      assert.equal(saved.events[0].limit?.spent, 10);
+      assert.equal(saved.charges.length, 1);
+      assert.equal(Object.keys(saved.chargeRequests ?? {}).length, 1);
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  });
+
+  it("stale sync or review cannot overwrite a newly committed debit", async () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "allot-cas-test-"));
+    const file = path.join(directory, "state.json");
+    try {
+      await writeState(fixture(), file);
+      const stale = await readStateSnapshot(file);
+      const chargeSnapshot = await readStateSnapshot(file);
+      await commitStateSnapshot(chargeSnapshot, applyStoredCharge(chargeSnapshot.state, input).state, file);
+      const review = { ...stale.state, events: stale.state.events.map((event) => ({ ...event, approval: "rejected" as const })) };
+      const sync = { ...stale.state, events: reconcileEvents(stale.state.events, []) };
+      await assert.rejects(() => commitStateSnapshot(stale, review, file), StateConflictError);
+      await assert.rejects(() => commitStateSnapshot(stale, sync, file), StateConflictError);
+      assert.equal((await readState(file)).events[0].limit?.spent, 10);
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  });
+
+  it("Redis CAS uses one EVAL and distinguishes a missing key from stored JSON null", async (context) => {
+    const previousUrl = process.env.KV_REST_API_URL;
+    const previousToken = process.env.KV_REST_API_TOKEN;
+    process.env.KV_REST_API_URL = "https://redis.test";
+    process.env.KV_REST_API_TOKEN = "test-only-token";
+    const values = new Map<string, string>();
+    const commands: Array<Array<string | number>> = [];
+    context.mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
+      const command = JSON.parse(String(init?.body)) as Array<string | number>;
+      commands.push(command);
+      let result: unknown;
+      if (command[0] === "GET") result = values.get(String(command[1])) ?? null;
+      else {
+        assert.equal(command[0], "EVAL");
+        assert.equal(command[2], 1);
+        assert.match(String(command[1]), /redis\.call\('GET', KEYS\[1\]\)/);
+        assert.match(String(command[1]), /redis\.call\('SET', KEYS\[1\], ARGV\[3\]\)/);
+        const [, , , key, exists, expected, next] = command;
+        const current = values.get(String(key));
+        const match = exists === "0" ? current === undefined : current === expected;
+        if (match) values.set(String(key), String(next));
+        result = match ? 1 : 0;
+      }
+      return Response.json({ result });
+    });
+    try {
+      assert.equal(await compareAndSetJson("state", null, { balance: 25 }), true);
+      assert.deepEqual(commands.map((command) => command[0]), ["EVAL"]);
+      assert.equal(await compareAndSetJson("state", null, { balance: 50 }), false);
+      values.set("allot:state", "null");
+      const snapshot = await readJsonSnapshot("state");
+      assert.deepEqual(snapshot, { value: null, raw: "null" });
+      assert.equal(await compareAndSetJson("state", null, {}), false);
+      assert.equal(await compareAndSetJson("state", snapshot.raw, { balance: 10 }), true);
+      assert.equal(values.get("allot:state"), '{"balance":10}');
+    } finally {
+      if (previousUrl === undefined) delete process.env.KV_REST_API_URL; else process.env.KV_REST_API_URL = previousUrl;
+      if (previousToken === undefined) delete process.env.KV_REST_API_TOKEN; else process.env.KV_REST_API_TOKEN = previousToken;
+    }
   });
 });

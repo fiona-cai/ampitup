@@ -1,5 +1,4 @@
-import fs from "fs";
-import path from "path";
+import { deleteKey, getJson, setJson } from "./kv";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -9,8 +8,6 @@ const REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 export const READ_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 export const WRITE_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const IDENTITY_SCOPES = ["openid", "email", "profile"];
-
-const tokenPath = path.join(process.cwd(), "data", "google.json");
 
 export type GoogleTokens = {
   accessToken: string;
@@ -89,7 +86,7 @@ export async function exchangeCode(config: GoogleConfig, code: string): Promise<
 
   return {
     accessToken,
-    refreshToken: body.refresh_token ?? readTokens()?.refreshToken ?? null,
+    refreshToken: body.refresh_token ?? (await readTokens())?.refreshToken ?? null,
     expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000,
     scope: body.scope ?? "",
     email: profile.email,
@@ -97,23 +94,18 @@ export async function exchangeCode(config: GoogleConfig, code: string): Promise<
   };
 }
 
-export function readTokens(): GoogleTokens | null {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(tokenPath, "utf8")) as GoogleTokens;
-    return parsed.accessToken ? parsed : null;
-  } catch {
-    return null;
-  }
+export async function readTokens(): Promise<GoogleTokens | null> {
+  const parsed = await getJson<GoogleTokens>("google");
+  return parsed?.accessToken ? parsed : null;
 }
 
-export function writeTokens(tokens: GoogleTokens): void {
-  fs.mkdirSync(path.dirname(tokenPath), { recursive: true });
-  fs.writeFileSync(tokenPath, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+export async function writeTokens(tokens: GoogleTokens): Promise<void> {
+  await setJson("google", tokens, { secret: true });
 }
 
 export async function clearTokens(): Promise<void> {
-  const tokens = readTokens();
-  fs.rmSync(tokenPath, { force: true });
+  const tokens = await readTokens();
+  await deleteKey("google");
   const token = tokens?.refreshToken ?? tokens?.accessToken;
   if (!token) return;
   await fetch(REVOKE_URL, {
@@ -128,7 +120,7 @@ export function hasScope(tokens: GoogleTokens, scope: string): boolean {
 }
 
 export async function accessToken(config: GoogleConfig | null = googleConfig()): Promise<string | null> {
-  const tokens = readTokens();
+  const tokens = await readTokens();
   if (!tokens) return null;
   if (tokens.expiresAt - Date.now() > 60_000) return tokens.accessToken;
   if (!tokens.refreshToken || !config) return null;
@@ -145,6 +137,6 @@ export async function accessToken(config: GoogleConfig | null = googleConfig()):
     expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000,
     scope: body.scope ?? tokens.scope,
   };
-  writeTokens(next);
+  await writeTokens(next);
   return next.accessToken;
 }

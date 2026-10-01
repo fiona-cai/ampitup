@@ -300,6 +300,28 @@ For a quick test without setting up an OAuth client, set `CALENDAR_SOURCE=google
 
 **Sample employee.** The sample week belongs to the employee in `lib/seed.ts`, whose company domain is `northwind.co`.
 
+## Deployment
+
+Production runs on Vercel at [allot-ramp.vercel.app](https://allot-ramp.vercel.app), in the `fionacais-projects/allot` project. Every push to `main` deploys automatically through the GitHub connection.
+
+**Storage.** Vercel can't keep files between requests, so state and Google tokens go to Upstash Redis when `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`) are set. Without them, a deployment stores state in its temp directory, which is lost whenever Vercel starts a new instance, and the calendar connections panel shows a warning. Locally, everything stays in `data/`.
+
+To connect Redis, accept the Upstash terms for the team once in the browser, then run:
+
+```bash
+vercel integration add upstash/upstash-kv --name allot-kv
+```
+
+This creates the database, adds its variables to every environment, and pulls them into `.env.local`. Redeploy afterwards.
+
+**Environment variables.** Set them with `vercel env add NAME production`, or in the project settings, then redeploy:
+
+- `ANTHROPIC_API_KEY`, to have Claude set budgets.
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, for Google sign-in.
+- `GOOGLE_REDIRECT_URI=https://allot-ramp.vercel.app/api/auth/google/callback`, so sign-in works the same from any of the project's URLs. Add the same URI to the OAuth client in Google Cloud.
+
+**Access.** Vercel's Deployment Protection puts the generated `*-fionacais-projects.vercel.app` URLs behind a Vercel login. `allot-ramp.vercel.app` is a production domain, so it's public.
+
 ## API
 
 The app's data goes through one route, `app/api/events/route.ts`. Google sign-in uses two more:
@@ -329,7 +351,7 @@ curl -X POST localhost:3000/api/events -H 'content-type: application/json' \
   -d '{"action":"charge","amount":90,"time":"2026-10-06T13:00:00-04:00","merchant":"Sweetgreen"}'
 ```
 
-State is stored in `data/state.json`, which is gitignored. Writes are queued so that requests within one server process don't overwrite each other.
+State is stored in Redis when configured, otherwise in gitignored `data/state.json` locally. Writes use compare-and-set so concurrent hosted requests cannot overwrite newer spending. Charge requests retry against fresh state; stale sync or approval writes return HTTP 409 and can be retried after refreshing.
 
 Removed or cancelled source events are archived: their spending history remains, but they cannot be approved or charged. If the event returns in the source, it requires fresh review and retains its prior spending.
 
