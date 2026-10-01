@@ -6,8 +6,8 @@ export function isExternal(email: string, domain = policy.companyDomain): boolea
   return host.length > 0 && host !== domain.toLowerCase();
 }
 
-export function externalAttendees(event: CalendarEvent): Attendee[] {
-  return event.attendees.filter((attendee) => isExternal(attendee.email));
+export function externalAttendees(event: CalendarEvent, domain = policy.companyDomain): Attendee[] {
+  return event.attendees.filter((attendee) => isExternal(attendee.email, domain));
 }
 
 export function peopleLine(event: CalendarEvent, selfEmail: string): string {

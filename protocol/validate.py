@@ -76,11 +76,12 @@ def validate(value, definition="snapshot"):
             raise ValueError("rawLabel must be the highest-probability class")
         if abs(value["confidence"] - value["probabilities"][label]) > 0.001:
             raise ValueError("confidence must equal the selected probability")
-    elif definition == "pricingRequest":
+    elif definition in ("gateRequest", "pricingRequest"):
         validate(value["event"], "event")
-        validate(value["gate"], "gate")
-        if value["gate"]["label"] == "no_budget":
-            raise ValueError("no_budget events do not go to the budget model")
+        if definition == "pricingRequest":
+            validate(value["gate"], "gate")
+            if value["gate"]["label"] == "no_budget":
+                raise ValueError("no_budget events do not go to the budget model")
     elif definition == "budgetProposal":
         if value["amountMinor"] != sum(line["amountMinor"] for line in value["lineItems"]):
             raise ValueError("amountMinor must equal the line-item total")

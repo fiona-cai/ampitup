@@ -70,7 +70,7 @@ def context_for(event, snapshot):
         "date": date.isoformat(), "weekStart": monday.isoformat(),
         "durationMinutes": (end - start).total_seconds() / 60,
         "day": load(date, 1), "week": load(monday, 7),
-        "nearMealTime": 11 <= local.hour < 14 or 17 <= local.hour < 21,
+        "nearMealTime": 6 <= local.hour < 10 or 11 <= local.hour < 15 or 17 <= local.hour < 22,
         "transition": {"previousEventId": previous["id"] if previous else None,
                        "gapMinutes": gap, "travelMinutes": travel, "timePressure": pressure},
     }
