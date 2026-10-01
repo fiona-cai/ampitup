@@ -9,6 +9,8 @@ function isTransport(category: SpendCategory): boolean {
 }
 
 export function createLimit(event: PricedEvent, previous?: SpendLimit | null): SpendLimit | null {
+  // An archived record may retain its old ledger, but never creates a new limit.
+  if (event.archived) return previous ?? null;
   if (!event.budget) return previous ?? null;
   const start = parseInstant(event.event.start);
   const end = parseInstant(event.event.end);
@@ -30,6 +32,7 @@ export function createLimit(event: PricedEvent, previous?: SpendLimit | null): S
 
 export function approveBudgeted(events: PricedEvent[]): PricedEvent[] {
   return events.map((event) => {
+    if (event.archived) return { ...event, approval: "rejected" };
     if (!event.budget || event.approval === "rejected") return event;
     return { ...event, approval: "approved", limit: createLimit(event, event.limit) };
   });
@@ -78,7 +81,7 @@ export function authorize(
     },
   });
   const open = events.filter((event) => {
-    if (event.approval !== "approved" || !event.budget || !event.limit) return false;
+    if (event.archived || event.approval !== "approved" || !event.budget || !event.limit) return false;
     if (input.eventId !== undefined && event.event.id !== input.eventId) return false;
     const from = parseInstant(event.limit.activeFrom);
     const until = parseInstant(event.limit.activeUntil);

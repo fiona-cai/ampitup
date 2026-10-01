@@ -1,5 +1,6 @@
 import { accessToken, googleConfig, readTokens } from "./google";
 import { demoWindow, seedEvents } from "./seed";
+import { parseInstant } from "./time";
 import type { CalendarEvent, CalendarSource, SyncWindow } from "./types";
 
 const EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
@@ -46,9 +47,14 @@ function stripHtml(text: string): string {
 
 export function mapEvent(item: GoogleEvent, index: number, homeCity: string): CalendarEvent | null {
   if (item.status === "cancelled") return null;
-  const start = item.start?.dateTime ?? (item.start?.date ? `${item.start.date}T09:00:00-04:00` : "");
-  const end = item.end?.dateTime ?? (item.end?.date ? `${item.end.date}T17:00:00-04:00` : "");
+  // A date-only event supplies no spending window; do not invent working hours.
+  if (item.start?.date !== undefined || item.end?.date !== undefined) return null;
+  const start = item.start?.dateTime;
+  const end = item.end?.dateTime;
   if (!item.summary || !start || !end) return null;
+  const startTime = parseInstant(start);
+  const endTime = parseInstant(end);
+  if (startTime === null || endTime === null || startTime >= endTime) return null;
 
   const people = (item.attendees ?? []).filter((attendee) => attendee.email && !attendee.resource);
   if (people.some((attendee) => attendee.self && attendee.responseStatus === "declined")) return null;

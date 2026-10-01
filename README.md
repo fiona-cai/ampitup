@@ -189,11 +189,11 @@ Budgets start as pending. A manager can approve all of them at once or approve, 
 When a charge comes in:
 
 1. Find the approved limits that are open at the charge time. If none are open, decline: limits don't cover the gaps between events.
-2. If several are open, use the one with the shortest window, which is the most specific event.
+2. If several are open, decline unless the request names one `eventId`. Budgets cannot be pooled or guessed.
 3. If the charge is more than what's left on that limit, decline and name the event it can't borrow from.
 4. Otherwise approve the simulated attempt, add it to the mock limit's spend, and write an expense line linked to the event. No receipt matching is performed.
 
-Spend accumulates, so two charges against the same dinner share its limit. The last 12 charges are kept.
+Spend accumulates, so two distinct charges against the same dinner share its limit. The last 12 attempts are displayed; idempotency receipts are retained separately.
 
 ## Savings summary
 
@@ -282,7 +282,7 @@ After seeding, click **Sign out**, then sign in again without `?write=1`, so the
 
 - Sync reads the primary calendar from now to 7 days out, with recurring events expanded, up to 50 events.
 - Cancelled events, events you declined, and meeting rooms in the attendee list are skipped. HTML in descriptions is stripped.
-- All-day events are treated as 9 AM to 5 PM.
+- Only timed events with valid, explicit-offset start and end timestamps are imported. All-day/date-only events are skipped rather than assigned invented hours, so they cannot create spending windows.
 - Each event's city is inferred from its location and title. Anything unrecognized is treated as the home city, so put a city name such as "New York" in the location of travel events.
 - Attendees on the company domain are internal and everyone else is external. On a personal Gmail account, that means other Gmail users count as internal, so set `COMPANY_DOMAIN` if that matters.
 - If Google rejects the request, the calendar is empty, or Google can't be reached, sync falls back to the sample week and shows why above the events.
@@ -314,15 +314,15 @@ The app's data goes through one route, `app/api/events/route.ts`. Google sign-in
 | Action | Body | Effect |
 | --- | --- | --- |
 | `connect` | — | Uses the sample account, for when Google sign-in isn't set up |
-| `sync` | — | Loads events, runs Jev and pricing, and clears earlier charges |
+| `sync` | — | Loads events, runs Jev and pricing, and preserves spending and charge history |
 | `decide` | `{ "all": true }` | Approves every pending budget |
 | `decide` | `{ "eventId", "approval" }` | Sets one budget to `approved`, `rejected`, or `pending` |
 | `decide` | `{ "eventId", "amount" }` | Edits one budget, clamped to its cap. `0` rejects it |
-| `charge` | `{ "amount", "time", "merchant" }` | Authorizes a charge. `time` is ISO 8601 and `amount` is $1–$10,000 |
+| `charge` | `{ "amount", "time", "merchant", "eventId"?, "requestId"? }` | Authorizes a mock charge. `time` includes an explicit offset; `amount` is $0.01–$10,000 in cents. Use a stable `requestId` for retries |
 | `reset` | — | Clears events and charges. Stays signed in to Google |
 | `signout` | — | Revokes and deletes the Google tokens and clears all state |
 
-Errors come back as `{ "error": "..." }`, with status 400 for bad input and 500 for anything unexpected.
+Errors come back as `{ "error": "..." }`, with status 400 for bad input, 409 for a conflicting charge request ID, and 500 for anything unexpected.
 
 ```bash
 curl -X POST localhost:3000/api/events -H 'content-type: application/json' \
@@ -330,6 +330,10 @@ curl -X POST localhost:3000/api/events -H 'content-type: application/json' \
 ```
 
 State is stored in `data/state.json`, which is gitignored. Writes are queued so that requests within one server process don't overwrite each other.
+
+Removed or cancelled source events are archived: their spending history remains, but they cannot be approved or charged. If the event returns in the source, it requires fresh review and retains its prior spending.
+
+Send a stable `requestId` with each logical charge. Repeating the same ID and payload returns the original charge without another debit. Reusing the ID for a different payload returns HTTP 409. Receipts persist independently of the 12 most recent displayed attempts and are cleared with the demo/account state.
 
 ## Project layout
 

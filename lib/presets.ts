@@ -19,7 +19,7 @@ function merchantFor(event: PricedEvent): string {
 // One charge that overspends the first solo meal and one that fits inside the biggest meal.
 export function buildPresets(events: PricedEvent[]): ChargePreset[] {
   const meals = events.filter(
-    (event) => event.budget && event.approval !== "rejected" && event.budget.category !== "transport",
+    (event) => !event.archived && event.budget && event.approval !== "rejected" && event.budget.category !== "transport",
   );
   const presets: ChargePreset[] = [];
 

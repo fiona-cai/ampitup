@@ -256,8 +256,9 @@ describe("Google Calendar mapping", () => {
       null,
     );
     const allDay = mapEvent({ summary: "Offsite", start: { date: "2026-10-06" }, end: { date: "2026-10-07" } }, 0, "Waterloo");
-    assert.equal(allDay?.city, "Waterloo");
-    assert.equal(allDay?.start, "2026-10-06T09:00:00-04:00");
+    assert.equal(allDay, null);
+    const homeEvent = mapEvent({ summary: "Offsite", start: { dateTime: "2026-10-06T09:00:00-04:00" }, end: { dateTime: "2026-10-06T17:00:00-04:00" } }, 0, "Waterloo");
+    assert.equal(homeEvent?.city, "Waterloo");
   });
 
   it("treats teammates on the signed-in domain as internal", () => {

@@ -16,23 +16,24 @@ export function blankState(): AppState {
     sourceNote: null,
     events: [],
     charges: [],
+    chargeRequests: {},
   };
 }
 
-export function readState(): AppState {
+export function readState(filePath = statePath): AppState {
   try {
-    const parsed = JSON.parse(fs.readFileSync(statePath, "utf8")) as AppState;
+    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as AppState;
     if (!parsed?.employee?.companyDomain || !parsed.window || !parsed.source || !Array.isArray(parsed.events)) {
       return blankState();
     }
-    return parsed;
+    return { ...parsed, charges: Array.isArray(parsed.charges) ? parsed.charges : [], chargeRequests: parsed.chargeRequests ?? {} };
   } catch {
     return blankState();
   }
 }
 
-export function writeState(state: AppState): AppState {
-  fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+export function writeState(state: AppState, filePath = statePath): AppState {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(state, null, 2));
   return state;
 }

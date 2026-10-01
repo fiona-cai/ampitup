@@ -3,7 +3,8 @@ import { loadCalendar } from "@/lib/calendar";
 import { clearTokens, googleConfig, readTokens } from "@/lib/google";
 import { priceEvents, pricerLabel } from "@/lib/pipeline";
 import { fromCents, toCents } from "@/lib/money";
-import { approveBudgeted, authorize, createLimit } from "@/lib/ramp";
+import { approveBudgeted, createLimit } from "@/lib/ramp";
+import { applyStoredCharge, ChargeConflictError } from "@/lib/charges";
 import { reconcileEvents } from "@/lib/reconcile";
 import { demoEmployee, employeeFromGoogle } from "@/lib/seed";
 import { blankState, readState, writeState } from "@/lib/store";
@@ -23,8 +24,12 @@ class HttpError extends Error {
 }
 
 function present(state: AppState): AppResponse {
+  const visible = { ...state };
+  // Keep the unbounded idempotency ledger on the server; the UI only needs its
+  // bounded recent attempts. Both are persisted by writeState.
+  delete visible.chargeRequests;
   return {
-    ...state,
+    ...visible,
     summary: state.synced ? summarize(state.events, state.employee.homeCity) : null,
     googleConfigured: googleConfig() !== null,
     googleAccount: readTokens()?.email ?? null,
@@ -122,6 +127,9 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
     if (index < 0) throw new HttpError(400, "That event is not on this calendar.");
 
     let next = state.events[index];
+    if (next.archived && (body.amount !== undefined || body.approval === "approved" || body.approval === "pending")) {
+      throw new HttpError(400, "This event is no longer in the active calendar. Sync it again before changing or approving its budget.");
+    }
     if (body.amount !== undefined) {
       if (typeof body.amount !== "number") throw new HttpError(400, "Budget amount must be a number.");
       next = applyAmount(next, body.amount);
@@ -136,20 +144,15 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
   if (action === "charge") {
     const amount = typeof body.amount === "number" ? body.amount : NaN;
     const time = typeof body.time === "string" ? body.time : "";
-    const merchant = (typeof body.merchant === "string" && body.merchant.trim() ? body.merchant : "Card swipe").slice(0, 80);
+    const merchant = typeof body.merchant === "string" ? body.merchant : "Card swipe";
     if (body.eventId !== undefined && typeof body.eventId !== "string") throw new HttpError(400, "Event identity must be a string.");
     if (body.requestId !== undefined && typeof body.requestId !== "string") throw new HttpError(400, "Request identity must be a string.");
-    if (!state.events.some((event) => event.approval === "approved")) {
-      throw new HttpError(400, "Approve at least one budget before trying a charge.");
-    }
-    const result = authorize(state.events, {
+    const result = applyStoredCharge(state, {
       amount, time, merchant,
       eventId: typeof body.eventId === "string" ? body.eventId : undefined,
       requestId: typeof body.requestId === "string" ? body.requestId : undefined,
     });
-    state.events = result.events;
-    state.charges = [result.charge, ...state.charges].slice(0, 12);
-    return writeState(state);
+    return writeState(result.state);
   }
 
   throw new HttpError(400, "Unknown action.");
@@ -169,6 +172,9 @@ export async function POST(request: Request) {
     const state = await enqueue(() => handle(body));
     return NextResponse.json(present(state));
   } catch (error) {
+    if (error instanceof ChargeConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     if (error instanceof TypeError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

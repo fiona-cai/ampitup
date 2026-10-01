@@ -109,7 +109,7 @@ export default function AllotApp() {
   }
   async function bulk(approval: "approved" | "rejected") {
     setMenu(null);
-    const targets = chosen.filter((item) => item.budget);
+    const targets = chosen.filter((item) => item.budget && !item.archived);
     for (const item of targets) {
       if (!await send({ action: "decide", eventId: item.event.id, approval })) return;
     }
@@ -229,10 +229,10 @@ function EventRow({ item, charge, selected, busy, onSelect, onOpen, onApprove }:
       </small></div><div className="row-indicator">{status === "none" ? <RampIcon name="clock" size={17} /> : <><RampIcon name="user" size={17} /><sup>{item.event.attendees.length || 1}</sup></>}</div>
     </div></td>
     <td><div className="department">{status !== "none" && item.budget?.source === "claude" && <RampIcon name="spark" size={15} />}{status === "none" ? "—" : formatMoney(item.budget?.amount ?? 0)}</div></td>
-    <td className="reason">{item.approval === "rejected" ? "Budget paused by reviewer" : item.budget?.reason ?? item.jev.reason}</td>
+    <td className="reason">{item.archived ? "Removed or cancelled in source" : item.approval === "rejected" ? "Budget paused by reviewer" : item.budget?.reason ?? item.jev.reason}</td>
     <td className="card-window">{eventWindow(item)}</td>
     <td className="small-col">{status !== "none" && <input type="checkbox" aria-label={`Approve ${item.event.title}`} checked={item.approval === "approved"} disabled={busy || item.approval === "approved"} onChange={onApprove} />}</td>
-    <td className="actions-col">{status === "none" ? item.approval === "rejected" ? <button className="undo" disabled={busy} onClick={onApprove}>Restore budget</button> : "Skipped by Jev" : charge ? <button className={`action-detail${charge.result === "declined" ? " flagged" : ""}`} onClick={onOpen}>{formatMoney(charge.amount)} {charge.result === "declined" ? "declined" : "matched (demo)"}</button> : status === "review" ? <>Needs review. <button className="undo" disabled={busy} onClick={onApprove}>Approve</button></> : <><span>Approved · </span><button className="undo" onClick={onOpen}>Details</button></>}</td>
+    <td className="actions-col">{status === "none" ? item.approval === "rejected" && !item.archived ? <button className="undo" disabled={busy} onClick={onApprove}>Restore budget</button> : item.archived ? "Archived" : "Skipped by Jev" : charge ? <button className={`action-detail${charge.result === "declined" ? " flagged" : ""}`} onClick={onOpen}>{formatMoney(charge.amount)} {charge.result === "declined" ? "declined" : "matched (demo)"}</button> : status === "review" ? <>Needs review. <button className="undo" disabled={busy} onClick={onApprove}>Approve</button></> : <><span>Approved · </span><button className="undo" onClick={onOpen}>Details</button></>}</td>
   </tr>;
 }
 
