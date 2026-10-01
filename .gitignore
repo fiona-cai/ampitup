@@ -42,3 +42,8 @@ next-env.d.ts
 
 # demo trip state
 /data/state.json
+
+# local protocol tooling and harness reports
+/protocol/.venv/
+__pycache__/
+/data/harness/
