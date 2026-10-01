@@ -1,0 +1,59 @@
+app/api/events/route.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 3,7,28-29,70-79,89-91,97-99
+lib/presets.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 1-57
+lib/attendees.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 13-14,16
+.gitignore
+  s_cb36e1b67b0aff::t_6f6de2be1d84ca 51
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 35,44,52-53
+app/api/auth/google/route.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 1-25
+lib/calendar.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 1-3,5-14,17,26-32,43-48,52-55,59,64-67,71-78,80-81,83-84,86-92,94-103,105-106,108-113,118-126,128
+package.json
+  s_cb36e1b67b0aff::t_6f6de2be1d84ca 13
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 14
+app/api/auth/google/callback/route.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 1-44
+lib/seed.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 20,24-35
+lib/store.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 15-16,25-27
+scripts/seed-google-calendar.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 1-134
+lib/price.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 1,115,129,145,172,213-217,221
+components/AllotApp.tsx
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 7-8,16-23,53-57,64,90-94,107,115-119,144-154,182-191,197-207,215-219,221-231,293-294,331-336,349-350,382,388,423,564,578
+lib/pipeline.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 2,6-9,13
+  s_cb36e1b67b0aff::t_6f6de2be1d84ca 12
+.env.example
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 1-17
+lib/google.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 1-150
+lib/pipeline.test.ts
+  s_cb36e1b67b0aff::t_6f6de2be1d84ca 240,278-279
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 6-7,179-183,216-239,241-277,280
+lib/types.ts
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 81,85-86,99-100,131-132
+README.md
+  s_cb36e1b67b0aff::t_7c8b43e23c490f 58,62,69,222,225-261,263-274,277-281,283-288,290-301,305-308,310,316,322-323,339-341,348-349,354-356,387,389,395,397
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1d656a417098fb8142005db3bf5ff247fcacd327",
+  "prompts": {},
+  "sessions": {
+    "s_cb36e1b67b0aff": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "f3a72ad7-69e0-48c5-82ba-d65d4773e4df",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fiona Cai <69484076+fiona-cai@users.noreply.github.com>"
+    }
+  }
+}
