@@ -74,17 +74,11 @@ export function formatDayKey(key: string): string {
 }
 
 export function formatRange(start: string, end: string): string {
-  const startLabel = new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat("en-US", {
     timeZone: LOCAL_TZ,
     month: "short",
     day: "numeric",
-  }).format(new Date(start));
-  const endLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: LOCAL_TZ,
-    month: "short",
-    day: "numeric",
-  }).format(new Date(end));
-  return `${startLabel}–${endLabel}`;
+  }).formatRange(new Date(start), new Date(end));
 }
 
 export function addMinutes(iso: string, minutes: number): string {

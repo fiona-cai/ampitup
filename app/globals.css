@@ -105,6 +105,7 @@ svg { flex-shrink: 0; }
 .filter-button, .options-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 31px; padding: 0 12px; border: 1px solid #d5d5d1; border-radius: 18px; background: #fff; color: #686961; font-size: 12px; white-space: nowrap; }
 .options-button { height: 33px; padding: 0 15px; font-size: 13px; color: #3f4039; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 33px; padding: 0; border: 1px solid #dbdbd7; border-radius: 18px; background: #fff; color: #71726a; }
+.icon-button.mobile-menu-button { display: none; }
 .filter-button:hover, .options-button:hover, .icon-button:hover { background: #f5f5f2; }
 .view-actions { flex-wrap: nowrap; }
 
@@ -288,6 +289,11 @@ svg { flex-shrink: 0; }
   .options-popover { right: 42px; }
 }
 @media (max-height: 760px) { .app-shell { min-height: 0; } }
+@media (max-height: 600px) {
+  .workspace { overflow-y: auto; }
+  .table-wrap { flex: 0 0 auto; }
+  .table-footer { position: sticky; bottom: 0; z-index: 5; background: #fff; }
+}
 @media (max-width: 900px) {
   .sidebar { flex-basis: 206px; width: 206px; }
   .page-header { padding-left: 30px; padding-right: 30px; }
@@ -303,7 +309,7 @@ svg { flex-shrink: 0; }
   .app-shell { height: 100dvh; min-height: 0; }
   .sidebar, .sidebar.is-collapsed { position: fixed; z-index: 60; top: 0; left: 0; bottom: 0; width: 255px; transform: translateX(-100%); visibility: hidden; border-right: 1px solid #deddd9; }
   .sidebar.is-open { transform: translateX(0); visibility: visible; }
-  .mobile-menu-button { display: flex; position: absolute; z-index: 35; top: 22px; left: 15px; }
+  .icon-button.mobile-menu-button { display: flex; position: absolute; z-index: 35; top: 22px; left: 15px; }
   .sidebar-backdrop { display: block; position: fixed; z-index: 50; inset: 0; border: 0; background: #17181635; }
   .collapse-button { display: none; }
   .mobile-close-button { display: flex; }
