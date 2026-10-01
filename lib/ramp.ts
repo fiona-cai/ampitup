@@ -96,9 +96,9 @@ export function authorize(
 
   const remaining = limit.amount - limit.spent;
   if (input.amount > remaining) {
-    const other = events.find(
-      (event) => event.approval === "approved" && event.limit && event.event.id !== match.event.id,
-    );
+    const other = events
+      .filter((event) => event.approval === "approved" && event.limit && event.event.id !== match.event.id)
+      .sort((a, b) => (b.limit?.amount ?? 0) - (a.limit?.amount ?? 0))[0];
     const borrow = other
       ? ` This card can't borrow from ${other.event.title}.`
       : " This card can't borrow from another event.";

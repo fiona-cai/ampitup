@@ -11,6 +11,8 @@ function activeBudget(event: PricedEvent): number {
   return event.budget.amount;
 }
 
+// The gap versus a daily pool is the money no meal needed.
+// Real meals and transport get paid either way: as a reimbursement under a per diem, or up front here.
 export function summarize(events: PricedEvent[]): TripSummary {
   const dates = [...new Set(events.map((event) => dayKey(event.event.start)))].sort();
   const pool = policy.perDiem.dailyPool;
