@@ -55,6 +55,6 @@ export function summarize(events: PricedEvent[]): TripSummary {
     contextReimbursements: 0,
     budgetedEvents,
     noBudgetEvents,
-    narrative: `A ${formatMoney(perDiemPool)} daily pool still comes back with ${formatMoney(perDiemReimbursements)} in reimbursements. ContextCard issues ${formatMoney(contextCard)} against named events and files nothing.`,
+    narrative: `${days.length} days of ${formatMoney(pool)} per diems (${formatMoney(perDiemPool)}) still come back with ${formatMoney(perDiemReimbursements)} in reimbursements. ContextCard issues ${formatMoney(contextCard)} against named events and files nothing.`,
   };
 }

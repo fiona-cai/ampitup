@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ContextCard
 
-## Getting Started
+ContextCard gives every business event its own right-sized budget, so spend matches the purpose of the event instead of a daily allowance.
 
-First, run the development server:
+It reads the calendar, decides which events need company money, prices each one, and turns each approved budget into a card limit that is only open around that event.
+
+## Run it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The demo runs end to end with no keys: sign in, sync, approve the trip, then try the `$90 at 1:00 PM` charge against the $25 lunch.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`Reset demo` in the header clears the trip. State is kept in `data/state.json`, which is gitignored.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+```
 
-## Learn More
+## Environment
 
-To learn more about Next.js, take a look at the following resources:
+All optional. Create `.env.local`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Claude sets the budget amounts. Without a key, policy rates are used.
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-sonnet-4-5
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Pull the next 7 days from a real Google Calendar instead of the seeded trip.
+CALENDAR_SOURCE=google
+GOOGLE_ACCESS_TOKEN=
+```
 
-## Deploy on Vercel
+The Google token needs the `calendar.readonly` scope. If the call fails or returns no events, sync falls back to the seeded New York trip.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## How a budget is decided
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Jev** (`lib/jev.ts`) decides whether an event needs money at all. Clear cases are rules: prepaid or catered events, meals included in registration, focus blocks, and internal meetings get no budget, while rides and named meals do. Anything left is scored on external attendees, a meal-time start, and a physical location. Vague titles like "catch up" are flagged low confidence and default to the standard per diem.
+2. **Claude** (`lib/price.ts`) sets the amount for events that pass Jev. It receives only the fields needed to price the event and returns JSON with an amount and a one-line reason.
+3. **Policy clamp.** The cap is computed in code from `data/policy.json`, and every amount is clamped to it, including manager edits. The model can't exceed policy.
+4. **Review.** A manager can approve the whole trip, or approve, edit, or reject single events.
+5. **Enforce** (`lib/ramp.ts`). Each approved budget becomes a mock Ramp spend limit that opens 45 minutes before a meal (30 before a ride) and closes 90 minutes after (45 after a ride). A charge can only spend the limit open at that moment, so a lunch can't borrow from a dinner.
+
+## Layout
+
+| Path | What it is |
+| --- | --- |
+| `app/api/trip/route.ts` | Connect, sync, decide, charge, reset |
+| `components/ContextCardApp.tsx` | Trip view, approval, charge simulator, savings summary |
+| `lib/seed.ts` | Seeded 3-day New York trip |
+| `lib/calendar.ts` | Google Calendar `events.list` sync |
+| `lib/summary.ts` | Per diem vs. ContextCard totals |
+| `data/policy.json` | Meal caps, client entertainment cap, city rates |

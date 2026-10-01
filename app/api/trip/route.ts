@@ -98,9 +98,7 @@ async function handle(body: Record<string, unknown>): Promise<TripState> {
     let next = state.events[index];
     if (typeof body.amount === "number") next = applyAmount(next, body.amount);
     if (body.approval === "approved" || body.approval === "rejected" || body.approval === "pending") {
-      if (next.approval !== "rejected" || body.approval !== "approved" || body.amount === undefined) {
-        next = applyApproval(next, body.approval);
-      }
+      next = applyApproval(next, body.approval);
     }
     state.events = state.events.map((event, eventIndex) => (eventIndex === index ? next : event));
     return writeState(state);
