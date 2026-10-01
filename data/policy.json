@@ -1,0 +1,68 @@
+{
+  "companyDomain": "northwind.co",
+  "currency": "USD",
+  "perDiem": {
+    "breakfast": 20,
+    "lunch": 30,
+    "dinner": 50,
+    "dailyPool": 100
+  },
+  "meals": {
+    "breakfast": { "solo": 20, "perPerson": 20 },
+    "lunch": { "solo": 25, "perPerson": 30 },
+    "dinner": { "solo": 50, "perPerson": 50 },
+    "coffee": { "solo": 15, "perPerson": 15 }
+  },
+  "clientEntertainment": {
+    "perPerson": 70,
+    "label": "$70/person client entertainment"
+  },
+  "transport": {
+    "airportMax": 75,
+    "localMax": 40
+  },
+  "windows": {
+    "mealMinutesBefore": 45,
+    "mealMinutesAfter": 90,
+    "transportMinutesBefore": 30,
+    "transportMinutesAfter": 45
+  },
+  "cities": {
+    "new york": {
+      "label": "NYC",
+      "clientMealPerPerson": 60,
+      "soloBreakfast": 20,
+      "soloLunch": 25,
+      "soloDinner": 55,
+      "airportTransfer": 60,
+      "coffeePerPerson": 15
+    },
+    "chicago": {
+      "label": "Chicago",
+      "clientMealPerPerson": 50,
+      "soloBreakfast": 18,
+      "soloLunch": 25,
+      "soloDinner": 45,
+      "airportTransfer": 55,
+      "coffeePerPerson": 12
+    },
+    "waterloo": {
+      "label": "Waterloo",
+      "clientMealPerPerson": 40,
+      "soloBreakfast": 15,
+      "soloLunch": 18,
+      "soloDinner": 35,
+      "airportTransfer": 60,
+      "coffeePerPerson": 10
+    },
+    "default": {
+      "label": "local rates",
+      "clientMealPerPerson": 45,
+      "soloBreakfast": 18,
+      "soloLunch": 22,
+      "soloDinner": 40,
+      "airportTransfer": 50,
+      "coffeePerPerson": 12
+    }
+  }
+}

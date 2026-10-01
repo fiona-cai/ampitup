@@ -1,0 +1,126 @@
+export type Attendee = {
+  name: string;
+  email: string;
+};
+
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  start: string;
+  end: string;
+  city: string;
+  attendees: Attendee[];
+};
+
+export type SpendCategory =
+  | "client_meal"
+  | "meal"
+  | "client_coffee"
+  | "transport"
+  | "default_per_diem";
+
+export type JevDecision = {
+  needsBudget: boolean;
+  reason: string;
+  confidence: "high" | "low";
+  category: SpendCategory | null;
+  rule: string;
+  signals: string[];
+};
+
+export type BudgetQuote = {
+  amount: number;
+  currency: "USD";
+  category: SpendCategory;
+  reason: string;
+  policyRule: string;
+  source: "claude" | "policy";
+  rawAmount: number;
+  clamped: boolean;
+  cap: number;
+};
+
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
+export type SpendLimit = {
+  id: string;
+  eventId: string;
+  amount: number;
+  currency: "USD";
+  activeFrom: string;
+  activeUntil: string;
+  spent: number;
+};
+
+export type ChargeAttempt = {
+  id: string;
+  merchant: string;
+  amount: number;
+  time: string;
+  result: "approved" | "declined";
+  eventId: string | null;
+  eventTitle: string | null;
+  detail: string;
+  report: string | null;
+};
+
+export type PricedEvent = {
+  event: CalendarEvent;
+  jev: JevDecision;
+  budget: BudgetQuote | null;
+  approval: ApprovalStatus;
+  limit: SpendLimit | null;
+};
+
+export type Employee = {
+  name: string;
+  email: string;
+  company: string;
+};
+
+export type TripInfo = {
+  name: string;
+  city: string;
+  start: string;
+  end: string;
+};
+
+export type TripState = {
+  connected: boolean;
+  synced: boolean;
+  pricer: "claude" | "policy" | "mixed" | null;
+  employee: Employee;
+  trip: TripInfo;
+  events: PricedEvent[];
+  charges: ChargeAttempt[];
+};
+
+export type DayRow = {
+  date: string;
+  label: string;
+  pool: number;
+  mealNeed: number;
+  shortfall: number;
+  idle: number;
+};
+
+export type TripSummary = {
+  days: DayRow[];
+  perDiemPool: number;
+  mealShortfall: number;
+  transport: number;
+  perDiemReimbursements: number;
+  perDiemTrueCost: number;
+  contextCard: number;
+  saved: number;
+  contextReimbursements: number;
+  budgetedEvents: number;
+  noBudgetEvents: number;
+  narrative: string;
+};
+
+export type TripResponse = TripState & {
+  summary: TripSummary | null;
+};
