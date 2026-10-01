@@ -73,7 +73,7 @@ function sample(note: string | null): CalendarLoad {
 }
 
 async function googleToken(): Promise<string | null> {
-  if (readTokens()) return accessToken(googleConfig());
+  if (await readTokens()) return accessToken(googleConfig());
   if (process.env.CALENDAR_SOURCE === "google" && process.env.GOOGLE_ACCESS_TOKEN) {
     return process.env.GOOGLE_ACCESS_TOKEN;
   }
@@ -88,7 +88,7 @@ export async function loadCalendar(homeCity: string): Promise<CalendarLoad> {
     return sample("Google sign-in expired. Sign in again to sync your calendar. Showing the sample week.");
   }
   if (!token) {
-    return sample(readTokens() ? "Google sign-in expired. Sign in again to sync your calendar. Showing the sample week." : null);
+    return sample((await readTokens()) ? "Google sign-in expired. Sign in again to sync your calendar. Showing the sample week." : null);
   }
 
   const now = new Date();

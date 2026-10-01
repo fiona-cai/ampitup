@@ -1,9 +1,6 @@
-import fs from "fs";
-import path from "path";
+import { getJson, setJson } from "./kv";
 import { demoEmployee, demoWindow } from "./seed";
 import type { AppState } from "./types";
-
-const statePath = path.join(process.cwd(), "data", "state.json");
 
 export function blankState(): AppState {
   return {
@@ -19,20 +16,15 @@ export function blankState(): AppState {
   };
 }
 
-export function readState(): AppState {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(statePath, "utf8")) as AppState;
-    if (!parsed?.employee?.companyDomain || !parsed.window || !parsed.source || !Array.isArray(parsed.events)) {
-      return blankState();
-    }
-    return parsed;
-  } catch {
+export async function readState(): Promise<AppState> {
+  const parsed = await getJson<AppState>("state");
+  if (!parsed?.employee?.companyDomain || !parsed.window || !parsed.source || !Array.isArray(parsed.events)) {
     return blankState();
   }
+  return parsed;
 }
 
-export function writeState(state: AppState): AppState {
-  fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+export async function writeState(state: AppState): Promise<AppState> {
+  await setJson("state", state);
   return state;
 }

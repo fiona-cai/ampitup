@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { loadCalendar } from "@/lib/calendar";
 import { clearTokens, googleConfig, readTokens } from "@/lib/google";
+import { storageKind } from "@/lib/kv";
 import { priceEvents, pricerLabel } from "@/lib/pipeline";
 import { fromCents, toCents } from "@/lib/money";
 import { approveBudgeted, authorize, createLimit } from "@/lib/ramp";
@@ -22,12 +23,13 @@ class HttpError extends Error {
   }
 }
 
-function present(state: AppState): AppResponse {
+async function present(state: AppState): Promise<AppResponse> {
   return {
     ...state,
     summary: state.synced ? summarize(state.events, state.employee.homeCity) : null,
     googleConfigured: googleConfig() !== null,
-    googleAccount: readTokens()?.email ?? null,
+    googleAccount: (await readTokens())?.email ?? null,
+    storage: storageKind(),
   };
 }
 
@@ -77,7 +79,7 @@ function applyApproval(event: PricedEvent, approval: ApprovalStatus): PricedEven
 async function handle(body: Record<string, unknown>): Promise<AppState> {
   const action = body.action;
   if (action === "reset") {
-    const tokens = readTokens();
+    const tokens = await readTokens();
     if (!tokens) return writeState(blankState());
     return writeState({ ...blankState(), connected: true, employee: employeeFromGoogle(tokens.email, tokens.name) });
   }
@@ -87,7 +89,7 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
     return writeState(blankState());
   }
 
-  const state = readState();
+  const state = await readState();
 
   if (action === "connect") {
     state.connected = true;
@@ -156,7 +158,7 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
 }
 
 export async function GET() {
-  return NextResponse.json(present(readState()));
+  return NextResponse.json(await present(await readState()));
 }
 
 export async function POST(request: Request) {
@@ -167,7 +169,7 @@ export async function POST(request: Request) {
 
   try {
     const state = await enqueue(() => handle(body));
-    return NextResponse.json(present(state));
+    return NextResponse.json(await present(state));
   } catch (error) {
     if (error instanceof TypeError) {
       return NextResponse.json({ error: error.message }, { status: 400 });

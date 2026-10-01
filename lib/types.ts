@@ -130,4 +130,5 @@ export type AppResponse = AppState & {
   summary: SpendSummary | null;
   googleConfigured: boolean;
   googleAccount: string | null;
+  storage: "redis" | "file" | "ephemeral";
 };

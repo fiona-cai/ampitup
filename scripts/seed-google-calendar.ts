@@ -89,7 +89,7 @@ async function clearSeeded(token: string): Promise<number> {
 }
 
 async function main() {
-  const tokens = readTokens();
+  const tokens = await readTokens();
   if (!tokens) {
     throw new Error("Not signed in. Start the app and open http://localhost:3000/api/auth/google?write=1");
   }
