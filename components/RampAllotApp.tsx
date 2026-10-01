@@ -71,9 +71,10 @@ export default function AllotApp() {
   useEffect(() => {
     const controller = new AbortController();
     const googleError = new URLSearchParams(window.location.search).get("google_error");
+    if (googleError) window.history.replaceState(null, "", window.location.pathname);
     fetch("/api/events", { cache: "no-store", signal: controller.signal })
       .then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not load events."); return data as AppResponse; })
-      .then((data) => { setState(data); if (googleError) setError("Google sign-in could not finish. Open Calendar sync and try again."); })
+      .then((data) => { setState(data); if (googleError) setError(googleErrorMessage(googleError)); })
       .catch((caught) => { if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : "Could not load events."); });
     return () => controller.abort();
   }, []);
@@ -168,7 +169,7 @@ export default function AllotApp() {
                 <button className="filter-button" aria-expanded={menu === "filter"} onClick={() => setMenu(menu === "filter" ? null : "filter")}><RampIcon name="plus" size={14} /> Filter</button>
               </div>
               <div className="view-actions">
-                <button className="icon-button" aria-label="Filters" aria-expanded={menu === "filter"} onClick={() => setMenu(menu === "filter" ? null : "filter")}><RampIcon name="filter" size={15} /><span className="tiny-count">{filterCount || 1}</span></button>
+                <button className="icon-button" aria-label="Filters" aria-expanded={menu === "filter"} onClick={() => setMenu(menu === "filter" ? null : "filter")}><RampIcon name="filter" size={15} />{filterCount > 0 && <span className="tiny-count">{filterCount}</span>}</button>
                 <button className="icon-button" aria-label="Calendar sync" title="Calendar sync" onClick={() => navigate("sources")}><RampIcon name="calendar" /></button>
                 <button className="icon-button" aria-label="Card simulator" title="Card simulator" onClick={() => setCardsOpen(true)}><RampIcon name="card" /></button>
                 <button className="icon-button" aria-label="Remove selected budgets" title="Mark selected events as no budget" disabled={busy || !chosen.some((item) => item.budget)} onClick={() => void bulk("rejected")}><RampIcon name="trash" /></button>
@@ -213,6 +214,16 @@ export default function AllotApp() {
       {info && <AppDialog title={info} onClose={() => setInfo(null)}><p>This navigation item belongs to the Ramp-style shell. The Allot prototype implements event budgets, policy review and simulated card charges.</p><button className="primary-button" onClick={() => { setInfo(null); navigate("context"); }}>Back to Allot</button></AppDialog>}
     </main>
   );
+}
+
+function googleErrorMessage(code: string): string {
+  switch (code) {
+    case "access_denied": return "Google sign-in was cancelled. Sample events are still available.";
+    case "state_mismatch": return "Google sign-in expired or returned to a different address. Start sign-in again from this page.";
+    case "not_configured": return "Google sign-in is not configured on this server.";
+    case "token_exchange_failed": return "Google rejected the sign-in. Check the OAuth client ID, secret and redirect URI, then try again.";
+    default: return "Google sign-in could not finish. Open Calendar sync and try again.";
+  }
 }
 
 function EventRow({ item, charge, selected, busy, onSelect, onOpen, onApprove }: {
