@@ -70,9 +70,10 @@ export default function AllotApp() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const googleError = new URLSearchParams(window.location.search).get("google_error");
     fetch("/api/events", { cache: "no-store", signal: controller.signal })
       .then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.error || "Could not load events."); return data as AppResponse; })
-      .then(setState)
+      .then((data) => { setState(data); if (googleError) setError("Google sign-in could not finish. Open Calendar sync and try again."); })
       .catch((caught) => { if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : "Could not load events."); });
     return () => controller.abort();
   }, []);
@@ -151,7 +152,7 @@ export default function AllotApp() {
           <button className="icon-button" aria-label="Dismiss notification" onClick={() => setToast(null)}><RampIcon name="close" /></button>
         </div>}
         {error && <div className="error-banner" role="alert"><span>{error}</span><button className="undo" onClick={() => void load()}>Retry</button></div>}
-        {page === "policy" ? <PolicyView /> : page === "sources" ? <CalendarView state={state} busy={busy} onSync={sync} /> : <>
+        {page === "policy" ? <PolicyView /> : page === "sources" ? <CalendarView state={state} busy={busy} onSync={sync} onSignOut={async () => { if (await send({ action: "signout" })) announce("Google calendar disconnected."); }} /> : <>
           <div className="tabs" role="tablist" aria-label="Event budget status">
             {TABS.map(({ id, label }) => <button key={id} role="tab" aria-selected={tab === id} aria-controls="events-panel"
               className={`tab${tab === id ? " active" : ""}`} onClick={() => { setTab(id); setMenu(null); }}>
@@ -163,7 +164,7 @@ export default function AllotApp() {
               <input ref={searchRef} aria-label="Search events" placeholder="Search events..." value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
             <div className="control-row">
-              <div className="filter-pills"><div className="locked-filter"><RampIcon name="calendar" size={13} /> Calendar <span>Sample · {state?.employee.email ?? "Loading"}</span></div>
+              <div className="filter-pills"><div className="locked-filter"><RampIcon name="calendar" size={13} /> Calendar <span>{state?.source === "google" ? "Google" : "Sample"} · {state?.employee.email ?? "Loading"}</span></div>
                 <button className="filter-button" aria-expanded={menu === "filter"} onClick={() => setMenu(menu === "filter" ? null : "filter")}><RampIcon name="plus" size={14} /> Filter</button>
               </div>
               <div className="view-actions">
@@ -195,7 +196,7 @@ export default function AllotApp() {
               {visible.map((item) => <EventRow key={item.event.id} item={item} charge={latestChargeFor(item.event.id, state?.charges ?? [])}
                 selected={selected.has(item.event.id)} busy={busy} onSelect={() => toggle(item.event.id)} onOpen={() => setDetailId(item.event.id)} onApprove={() => void approve(item)} />)}
               {!visible.length && <tr><td colSpan={7} className="empty-state">
-                {!state ? "Loading calendar…" : !state.synced ? <><p>No events synced yet.</p><button className="primary-button" disabled={busy} onClick={() => void sync()}>{busy ? "Loading…" : "Load sample events"}</button></> : <><p>No events match this view.</p><button className="undo" onClick={() => { setTab("overview"); setQuery(""); setCategory("all"); setLowConfidence(false); }}>Show all events</button></>}
+                {!state ? "Loading calendar…" : !state.synced ? <><p>No events synced yet.</p><button className="primary-button" disabled={busy} onClick={() => void sync()}>{busy ? "Loading…" : state.googleAccount ? "Sync calendar" : "Load sample events"}</button><button className="undo" onClick={() => navigate("sources")}>Calendar connections</button></> : <><p>No events match this view.</p><button className="undo" onClick={() => { setTab("overview"); setQuery(""); setCategory("all"); setLowConfidence(false); }}>Show all events</button></>}
               </td></tr>}
             </tbody></table>
           </div>
@@ -247,6 +248,8 @@ function PolicyView() {
   </div>;
 }
 
-function CalendarView({ state, busy, onSync }: { state: AppResponse | null; busy: boolean; onSync: () => Promise<void> }) {
-  return <div className="policy-view"><h2>Calendar context</h2><p>{state?.employee.name ?? "Employee"} · {state?.employee.email ?? "Loading…"}</p><p>{state?.synced ? `${state.events.length} events loaded for ${formatRange(state.window.start, state.window.end)}.` : "Load the sample calendar to review event budgets."}</p><button className="primary-button" disabled={busy} onClick={() => void onSync()}><RampIcon name="refresh" />{busy ? "Refreshing…" : "Refresh events"}</button><p className="muted">Calendar and Notion connections are being handled by the data integration team.</p></div>;
+function CalendarView({ state, busy, onSync, onSignOut }: { state: AppResponse | null; busy: boolean; onSync: () => Promise<void>; onSignOut: () => Promise<void> }) {
+  return <div className="policy-view"><h2>Calendar context</h2><p>{state?.employee.name ?? "Employee"} · {state?.employee.email ?? "Loading…"}</p><p>{state?.synced ? `${state.events.length} events loaded for ${formatRange(state.window.start, state.window.end)} from ${state.source === "google" ? "Google Calendar" : "the sample calendar"}.` : "Connect Google Calendar or load the sample calendar to review event budgets."}</p>
+    <div className="form-actions">{state?.googleConfigured && <a className="primary-button" href="/api/auth/google">{state.googleAccount ? "Reconnect Google" : "Sign in with Google"}</a>}<button className="primary-button" disabled={busy} onClick={() => void onSync()}><RampIcon name="refresh" />{busy ? "Refreshing…" : "Refresh events"}</button>{state?.googleAccount && <button className="undo" disabled={busy} onClick={() => void onSignOut()}>Sign out</button>}</div>
+    {state?.sourceNote && <p role="status">{state.sourceNote}</p>}{state && !state.googleConfigured && <p className="muted">Google sign-in is not configured on this server. Sample events are available.</p>}<p className="muted">Google Calendar is read-only. Notion integration is handled by the data integration team.</p></div>;
 }

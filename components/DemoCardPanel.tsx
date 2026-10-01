@@ -2,13 +2,14 @@
 import { useState } from "react";
 import AppDialog from "./AppDialog";
 import type { SendAction } from "./RampAllotApp";
-import { chargePresets } from "@/lib/presets";
+import { buildPresets } from "@/lib/presets";
 import { formatMoney, formatTime } from "@/lib/time";
 import type { AppResponse } from "@/lib/types";
 export default function DemoCardPanel({ state, busy, send, onClose, onResult }: {
   state: AppResponse; busy: boolean; send: SendAction; onClose: () => void; onResult: (message: string) => void;
 }) {
   const approved = state.events.filter((item) => item.budget && item.approval === "approved");
+  const chargePresets = buildPresets(approved);
   const [eventId, setEventId] = useState(approved[0]?.event.id ?? "");
   const [amount, setAmount] = useState("25");
   const [merchant, setMerchant] = useState("Demo merchant");

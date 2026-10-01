@@ -1,3 +1,4 @@
+import { isExternal } from "./attendees";
 import { cityRate, policy, type Policy } from "./policy";
 import { mealSlot, type MealSlot } from "./time";
 import type { BudgetQuote, CalendarEvent, JevDecision, SpendCategory } from "./types";
@@ -111,7 +112,7 @@ type ClaudeQuote = {
   reason?: unknown;
 };
 
-function fieldsForModel(event: CalendarEvent, jev: JevDecision, cap: Cap) {
+function fieldsForModel(event: CalendarEvent, jev: JevDecision, cap: Cap, companyDomain: string) {
   return {
     title: event.title,
     description: event.description,
@@ -125,7 +126,7 @@ function fieldsForModel(event: CalendarEvent, jev: JevDecision, cap: Cap) {
     policyRule: cap.policyRule,
     attendees: event.attendees.map((attendee) => ({
       name: attendee.name,
-      external: !attendee.email.endsWith(`@${policy.companyDomain}`),
+      external: isExternal(attendee.email, companyDomain),
     })),
     cityRates: cityRate(event.city),
     policy: {
@@ -141,6 +142,7 @@ async function quoteWithClaude(
   event: CalendarEvent,
   jev: JevDecision,
   cap: Cap,
+  companyDomain: string,
 ): Promise<BudgetQuote | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || !jev.category) return null;
@@ -167,7 +169,7 @@ async function quoteWithClaude(
       messages: [
         {
           role: "user",
-          content: JSON.stringify(fieldsForModel(event, jev, cap)),
+          content: JSON.stringify(fieldsForModel(event, jev, cap, companyDomain)),
         },
       ],
     }),
@@ -208,11 +210,15 @@ async function quoteWithClaude(
   };
 }
 
-export async function priceEvent(event: CalendarEvent, jev: JevDecision): Promise<BudgetQuote> {
+export async function priceEvent(
+  event: CalendarEvent,
+  jev: JevDecision,
+  companyDomain = policy.companyDomain,
+): Promise<BudgetQuote> {
   const fallback = quoteFromPolicy(event, jev);
   if (!jev.category) return fallback;
   try {
-    const quoted = await quoteWithClaude(event, jev, capFor(event, jev.category));
+    const quoted = await quoteWithClaude(event, jev, capFor(event, jev.category), companyDomain);
     return quoted ?? fallback;
   } catch {
     return fallback;

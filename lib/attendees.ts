@@ -10,11 +10,10 @@ export function externalAttendees(event: CalendarEvent, domain = policy.companyD
   return event.attendees.filter((attendee) => isExternal(attendee.email, domain));
 }
 
-export function peopleLine(event: CalendarEvent, selfEmail: string): string {
-  if (event.attendees.length === 0) return "Just you";
-  const others = event.attendees.filter((attendee) => attendee.email !== selfEmail);
+export function peopleLine(event: CalendarEvent, selfEmail: string, domain = policy.companyDomain): string {
+  const others = event.attendees.filter((attendee) => attendee.email.toLowerCase() !== selfEmail.toLowerCase());
   if (others.length === 0) return "Just you";
-  const external = others.filter((attendee) => isExternal(attendee.email));
+  const external = others.filter((attendee) => isExternal(attendee.email, domain));
   const shown = external.length > 0 ? external : others;
   return shown.map((attendee) => attendee.name.split(" ")[0]).join(", ");
 }

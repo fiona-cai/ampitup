@@ -1,15 +1,33 @@
-import { seedEvents } from "./seed";
-import type { CalendarEvent } from "./types";
+import { accessToken, googleConfig, readTokens } from "./google";
+import { demoWindow, seedEvents } from "./seed";
+import type { CalendarEvent, CalendarSource, SyncWindow } from "./types";
 
-type GoogleAttendee = { email?: string; displayName?: string };
+const EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type GoogleAttendee = {
+  email?: string;
+  displayName?: string;
+  self?: boolean;
+  resource?: boolean;
+  responseStatus?: string;
+};
 type GoogleEvent = {
   id?: string;
+  status?: string;
   summary?: string;
   description?: string;
   location?: string;
   start?: { dateTime?: string; date?: string };
   end?: { dateTime?: string; date?: string };
   attendees?: GoogleAttendee[];
+};
+
+export type CalendarLoad = {
+  events: CalendarEvent[];
+  source: CalendarSource;
+  note: string | null;
+  window: SyncWindow;
 };
 
 function inferCity(text: string, homeCity: string): string {
@@ -22,53 +40,91 @@ function inferCity(text: string, homeCity: string): string {
   return homeCity;
 }
 
-function mapEvent(item: GoogleEvent, index: number, homeCity: string): CalendarEvent | null {
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function mapEvent(item: GoogleEvent, index: number, homeCity: string): CalendarEvent | null {
+  if (item.status === "cancelled") return null;
   const start = item.start?.dateTime ?? (item.start?.date ? `${item.start.date}T09:00:00-04:00` : "");
   const end = item.end?.dateTime ?? (item.end?.date ? `${item.end.date}T17:00:00-04:00` : "");
   if (!item.summary || !start || !end) return null;
-  const attendees = (item.attendees ?? [])
-    .filter((attendee) => attendee.email)
-    .map((attendee) => ({
-      name: attendee.displayName || attendee.email || "Guest",
-      email: attendee.email || "",
-    }));
+
+  const people = (item.attendees ?? []).filter((attendee) => attendee.email && !attendee.resource);
+  if (people.some((attendee) => attendee.self && attendee.responseStatus === "declined")) return null;
+
   return {
     id: item.id || `gcal-${index}`,
     title: item.summary,
-    description: item.description ?? "",
+    description: stripHtml(item.description ?? ""),
     location: item.location ?? "",
     start,
     end,
     city: inferCity(`${item.location ?? ""} ${item.summary}`, homeCity),
-    attendees,
+    attendees: people.map((attendee) => ({
+      name: attendee.displayName || attendee.email || "Guest",
+      email: attendee.email || "",
+    })),
   };
 }
 
-export async function loadCalendar(homeCity: string): Promise<CalendarEvent[]> {
-  if (process.env.CALENDAR_SOURCE !== "google" || !process.env.GOOGLE_ACCESS_TOKEN) {
-    return seedEvents();
+function sample(note: string | null): CalendarLoad {
+  return { events: seedEvents(), source: "sample", note, window: demoWindow };
+}
+
+async function googleToken(): Promise<string | null> {
+  if (readTokens()) return accessToken(googleConfig());
+  if (process.env.CALENDAR_SOURCE === "google" && process.env.GOOGLE_ACCESS_TOKEN) {
+    return process.env.GOOGLE_ACCESS_TOKEN;
+  }
+  return null;
+}
+
+export async function loadCalendar(homeCity: string): Promise<CalendarLoad> {
+  let token: string | null;
+  try {
+    token = await googleToken();
+  } catch {
+    return sample("Google sign-in expired. Sign in again to sync your calendar. Showing the sample week.");
+  }
+  if (!token) {
+    return sample(readTokens() ? "Google sign-in expired. Sign in again to sync your calendar. Showing the sample week." : null);
   }
 
-  try {
-    const now = new Date();
-    const later = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const url = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
-    url.searchParams.set("timeMin", now.toISOString());
-    url.searchParams.set("timeMax", later.toISOString());
-    url.searchParams.set("singleEvents", "true");
-    url.searchParams.set("orderBy", "startTime");
-    url.searchParams.set("maxResults", "50");
+  const now = new Date();
+  const later = new Date(now.getTime() + 7 * DAY_MS);
+  const url = new URL(EVENTS_URL);
+  url.searchParams.set("timeMin", now.toISOString());
+  url.searchParams.set("timeMax", later.toISOString());
+  url.searchParams.set("singleEvents", "true");
+  url.searchParams.set("orderBy", "startTime");
+  url.searchParams.set("maxResults", "50");
 
+  try {
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${process.env.GOOGLE_ACCESS_TOKEN}` },
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) return seedEvents();
+    if (response.status === 401 || response.status === 403) {
+      return sample("Google rejected the calendar request. Sign out and sign in again. Showing the sample week.");
+    }
+    if (!response.ok) {
+      return sample(`Google Calendar returned ${response.status}. Showing the sample week.`);
+    }
     const body = (await response.json()) as { items?: GoogleEvent[] };
     const events = (body.items ?? [])
       .map((item, index) => mapEvent(item, index, homeCity))
       .filter((event): event is CalendarEvent => event !== null);
-    return events.length > 0 ? events : seedEvents();
+    if (events.length === 0) {
+      return sample("Your calendar has no events in the next 7 days. Showing the sample week.");
+    }
+    return {
+      events,
+      source: "google",
+      note: null,
+      window: { label: "Next 7 days", start: now.toISOString(), end: later.toISOString() },
+    };
   } catch {
-    return seedEvents();
+    return sample("Couldn't reach Google Calendar. Showing the sample week.");
   }
 }

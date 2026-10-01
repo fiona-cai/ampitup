@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { loadCalendar } from "@/lib/calendar";
+import { clearTokens, googleConfig, readTokens } from "@/lib/google";
 import { priceEvents, pricerLabel } from "@/lib/pipeline";
 import { fromCents, toCents } from "@/lib/money";
 import { approveBudgeted, authorize, createLimit } from "@/lib/ramp";
 import { reconcileEvents } from "@/lib/reconcile";
+import { demoEmployee, employeeFromGoogle } from "@/lib/seed";
 import { blankState, readState, writeState } from "@/lib/store";
 import { summarize } from "@/lib/summary";
 import type { AppResponse, AppState, ApprovalStatus, PricedEvent } from "@/lib/types";
@@ -24,6 +26,8 @@ function present(state: AppState): AppResponse {
   return {
     ...state,
     summary: state.synced ? summarize(state.events, state.employee.homeCity) : null,
+    googleConfigured: googleConfig() !== null,
+    googleAccount: readTokens()?.email ?? null,
   };
 }
 
@@ -72,7 +76,16 @@ function applyApproval(event: PricedEvent, approval: ApprovalStatus): PricedEven
 
 async function handle(body: Record<string, unknown>): Promise<AppState> {
   const action = body.action;
-  if (action === "reset") return writeState(blankState());
+  if (action === "reset") {
+    const tokens = readTokens();
+    if (!tokens) return writeState(blankState());
+    return writeState({ ...blankState(), connected: true, employee: employeeFromGoogle(tokens.email, tokens.name) });
+  }
+
+  if (action === "signout") {
+    await clearTokens();
+    return writeState(blankState());
+  }
 
   const state = readState();
 
@@ -82,13 +95,17 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
   }
 
   if (action === "sync") {
-    const events = await loadCalendar(state.employee.homeCity);
-    const priced = await priceEvents(events);
+    const load = await loadCalendar(state.employee.homeCity);
+    const domain = load.source === "google" ? state.employee.companyDomain : demoEmployee.companyDomain;
+    const priced = await priceEvents(load.events, domain);
     return writeState({
       ...state,
       connected: true,
       synced: true,
       pricer: pricerLabel(priced),
+      window: load.window,
+      source: load.source,
+      sourceNote: load.note,
       events: reconcileEvents(state.events, priced),
       charges: state.charges,
     });

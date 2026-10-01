@@ -1,12 +1,16 @@
 import { jevGate } from "./jev";
+import { policy } from "./policy";
 import { priceEvent } from "./price";
 import type { CalendarEvent, PricedEvent } from "./types";
 
-export async function priceEvents(events: CalendarEvent[]): Promise<PricedEvent[]> {
+export async function priceEvents(
+  events: CalendarEvent[],
+  companyDomain = policy.companyDomain,
+): Promise<PricedEvent[]> {
   return Promise.all(
     events.map(async (event) => {
-      const jev = jevGate(event);
-      const budget = jev.needsBudget ? await priceEvent(event, jev) : null;
+      const jev = jevGate(event, { companyDomain });
+      const budget = jev.needsBudget ? await priceEvent(event, jev, companyDomain) : null;
       return {
         event,
         jev,

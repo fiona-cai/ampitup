@@ -12,6 +12,8 @@ export function blankState(): AppState {
     pricer: null,
     employee: demoEmployee,
     window: demoWindow,
+    source: "sample",
+    sourceNote: null,
     events: [],
     charges: [],
   };
@@ -20,7 +22,9 @@ export function blankState(): AppState {
 export function readState(): AppState {
   try {
     const parsed = JSON.parse(fs.readFileSync(statePath, "utf8")) as AppState;
-    if (!parsed?.employee?.homeCity || !parsed.window || !Array.isArray(parsed.events)) return blankState();
+    if (!parsed?.employee?.companyDomain || !parsed.window || !parsed.source || !Array.isArray(parsed.events)) {
+      return blankState();
+    }
     return parsed;
   } catch {
     return blankState();
