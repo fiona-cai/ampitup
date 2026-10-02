@@ -13,7 +13,8 @@ const omar: Attendee = { name: "Omar Haddad", email: "omar.haddad@northwind.co" 
 const sofia: Attendee = { name: "Sofia Lind", email: "sofia.lind@northwind.co" };
 const candidate: Attendee = { name: "Ravi Patel", email: "ravi.patel@gmail.com" };
 
-export const demoEmployee: Employee = {
+// Fixture week for tests and `npm run seed:google`. The app itself only reads real calendars.
+export const seedEmployee: Employee = {
   name: "Maya Chen",
   email: "maya.chen@northwind.co",
   company: "Northwind",
@@ -21,20 +22,9 @@ export const demoEmployee: Employee = {
   homeCity: "Waterloo",
 };
 
-export function employeeFromGoogle(email: string, name: string): Employee {
-  const domain = (process.env.COMPANY_DOMAIN || email.split("@")[1] || "").toLowerCase();
-  return {
-    name,
-    email,
-    company: process.env.COMPANY_NAME || domain,
-    companyDomain: domain,
-    homeCity: process.env.HOME_CITY || demoEmployee.homeCity,
-  };
-}
-
 export const SEED_WEEK_START = "2026-10-05";
 
-export const demoWindow: SyncWindow = {
+export const seedWindow: SyncWindow = {
   label: "Next 7 days",
   start: "2026-10-05T00:00:00-04:00",
   end: "2026-10-11T23:59:00-04:00",

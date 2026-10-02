@@ -42,7 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 # demo state
-/data/state.json
+/data/state*.json
 
 # local protocol tooling and harness reports
 /protocol/.venv/

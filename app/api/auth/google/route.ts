@@ -21,5 +21,16 @@ export async function GET(request: NextRequest) {
     path: "/api/auth/google",
     maxAge: 600,
   });
+  const referer = request.headers.get("referer");
+  const from = referer && URL.canParse(referer) ? new URL(referer) : null;
+  if (from && from.origin === request.nextUrl.origin && !from.pathname.startsWith("/api/")) {
+    response.cookies.set("google_oauth_return", from.pathname, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: request.nextUrl.protocol === "https:",
+      path: "/api/auth/google",
+      maxAge: 600,
+    });
+  }
   return response;
 }

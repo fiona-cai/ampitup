@@ -85,7 +85,7 @@ export type Employee = {
   homeCity: string;
 };
 
-export type CalendarSource = "google" | "sample";
+export type CalendarSource = "google";
 
 export type SyncWindow = {
   label: string;
@@ -133,6 +133,11 @@ export type SpendSummary = {
 export type AppResponse = AppState & {
   summary: SpendSummary | null;
   googleConfigured: boolean;
-  googleAccount: string | null;
   storage: "redis" | "file" | "ephemeral";
+};
+
+export type SignedOutResponse = {
+  error: string;
+  signedIn: false;
+  googleConfigured: boolean;
 };

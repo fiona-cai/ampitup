@@ -1,4 +1,4 @@
-import { deleteKey, getJson, setJson } from "./kv";
+import { deleteKey, getJson, setJson, storageKind } from "./kv";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -86,7 +86,7 @@ export async function exchangeCode(config: GoogleConfig, code: string): Promise<
 
   return {
     accessToken,
-    refreshToken: body.refresh_token ?? (await readTokens())?.refreshToken ?? null,
+    refreshToken: body.refresh_token ?? null,
     expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000,
     scope: body.scope ?? "",
     email: profile.email,
@@ -94,20 +94,24 @@ export async function exchangeCode(config: GoogleConfig, code: string): Promise<
   };
 }
 
-export async function readTokens(): Promise<GoogleTokens | null> {
+// The app keeps tokens in each browser's session cookie. In local development it also writes a copy
+// to data/ so `npm run seed:google` can act on the most recent sign-in.
+export async function readScriptTokens(): Promise<GoogleTokens | null> {
   const parsed = await getJson<GoogleTokens>("google");
   return parsed?.accessToken ? parsed : null;
 }
 
-export async function writeTokens(tokens: GoogleTokens): Promise<void> {
-  await setJson("google", tokens, { secret: true });
+export async function writeScriptTokens(tokens: GoogleTokens): Promise<void> {
+  if (storageKind() === "file") await setJson("google", tokens, { secret: true });
 }
 
-export async function clearTokens(): Promise<void> {
-  const tokens = await readTokens();
-  await deleteKey("google");
-  const token = tokens?.refreshToken ?? tokens?.accessToken;
-  if (!token) return;
+export async function clearScriptTokens(email: string): Promise<void> {
+  if (storageKind() !== "file") return;
+  if ((await readScriptTokens())?.email === email) await deleteKey("google");
+}
+
+export async function revoke(tokens: GoogleTokens): Promise<void> {
+  const token = tokens.refreshToken ?? tokens.accessToken;
   await fetch(REVOKE_URL, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -119,10 +123,13 @@ export function hasScope(tokens: GoogleTokens, scope: string): boolean {
   return tokens.scope.split(" ").includes(scope);
 }
 
-export async function accessToken(config: GoogleConfig | null = googleConfig()): Promise<string | null> {
-  const tokens = await readTokens();
-  if (!tokens) return null;
-  if (tokens.expiresAt - Date.now() > 60_000) return tokens.accessToken;
+// Returns the same object while the access token is still valid, a refreshed copy once it expires,
+// or null when Google needs the user to sign in again.
+export async function refreshed(
+  tokens: GoogleTokens,
+  config: GoogleConfig | null = googleConfig(),
+): Promise<GoogleTokens | null> {
+  if (tokens.expiresAt - Date.now() > 60_000) return tokens;
   if (!tokens.refreshToken || !config) return null;
 
   const body = await postToken({
@@ -131,12 +138,10 @@ export async function accessToken(config: GoogleConfig | null = googleConfig()):
     client_secret: config.clientSecret,
     grant_type: "refresh_token",
   });
-  const next: GoogleTokens = {
+  return {
     ...tokens,
     accessToken: body.access_token as string,
     expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000,
     scope: body.scope ?? tokens.scope,
   };
-  await writeTokens(next);
-  return next.accessToken;
 }

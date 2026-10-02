@@ -1,4 +1,4 @@
-// Copies the sample week onto the signed-in Google Calendar so a live sync is predictable.
+// Copies the fixture week onto the most recent local Google sign-in's calendar.
 //
 //   npm run seed:google                    # starts tomorrow
 //   npm run seed:google -- --start 2026-10-12
@@ -6,7 +6,7 @@
 //
 // Needs write access: sign in once at http://localhost:3000/api/auth/google?write=1
 
-import { accessToken, googleConfig, hasScope, readTokens, WRITE_SCOPE } from "../lib/google";
+import { googleConfig, hasScope, readScriptTokens, refreshed, WRITE_SCOPE, writeScriptTokens } from "../lib/google";
 import { SEED_WEEK_START, seedEvents } from "../lib/seed";
 import { dayKey, LOCAL_TZ } from "../lib/time";
 import type { Attendee } from "../lib/types";
@@ -89,17 +89,19 @@ async function clearSeeded(token: string): Promise<number> {
 }
 
 async function main() {
-  const tokens = await readTokens();
-  if (!tokens) {
-    throw new Error("Not signed in. Start the app and open http://localhost:3000/api/auth/google?write=1");
+  const saved = await readScriptTokens();
+  if (!saved) {
+    throw new Error("Not signed in. Start the app locally and open http://localhost:3000/api/auth/google?write=1");
   }
+  const tokens = await refreshed(saved, googleConfig());
+  if (!tokens) throw new Error("Google token expired. Sign in again at http://localhost:3000/api/auth/google?write=1");
+  if (tokens !== saved) await writeScriptTokens(tokens);
   if (!hasScope(tokens, WRITE_SCOPE)) {
     throw new Error(
       `${tokens.email} only granted read access. Open http://localhost:3000/api/auth/google?write=1 and allow editing events.`,
     );
   }
-  const token = await accessToken(googleConfig());
-  if (!token) throw new Error("Google token expired. Sign in again at http://localhost:3000/api/auth/google?write=1");
+  const token = tokens.accessToken;
 
   const removed = await clearSeeded(token);
   console.log(`Removed ${removed} previously seeded event${removed === 1 ? "" : "s"} from ${tokens.email}.`);

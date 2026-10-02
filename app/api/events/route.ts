@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
-import { loadCalendar } from "@/lib/calendar";
-import { clearTokens, googleConfig, readTokens } from "@/lib/google";
+import { CalendarError, loadCalendar } from "@/lib/calendar";
+import { clearScriptTokens, googleConfig, refreshed, revoke, type GoogleTokens } from "@/lib/google";
 import { storageKind } from "@/lib/kv";
 import { priceEvents, pricerLabel } from "@/lib/pipeline";
 import { fromCents, toCents } from "@/lib/money";
 import { approveBudgeted, createLimit } from "@/lib/ramp";
 import { applyStoredCharge, ChargeConflictError } from "@/lib/charges";
 import { reconcileEvents } from "@/lib/reconcile";
-import { demoEmployee, employeeFromGoogle } from "@/lib/seed";
-import { blankState, commitStateSnapshot, readState, readStateSnapshot, StateConflictError } from "@/lib/store";
+import { clearSession, readSession, writeSession } from "@/lib/session";
+import { blankState, commitStateSnapshot, employeeFromGoogle, readState, readStateSnapshot, StateConflictError } from "@/lib/store";
 import { summarize } from "@/lib/summary";
-import type { AppResponse, AppState, ApprovalStatus, PricedEvent } from "@/lib/types";
+import type { AppResponse, AppState, ApprovalStatus, PricedEvent, SignedOutResponse } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,9 +33,25 @@ async function present(state: AppState): Promise<AppResponse> {
     ...visible,
     summary: state.synced ? summarize(state.events, state.employee.homeCity) : null,
     googleConfigured: googleConfig() !== null,
-    googleAccount: (await readTokens())?.email ?? null,
     storage: storageKind(),
   };
+}
+
+function signedOut(error = "Sign in with Google to see your events.") {
+  const body: SignedOutResponse = { error, signedIn: false, googleConfigured: googleConfig() !== null };
+  return NextResponse.json(body, { status: 401 });
+}
+
+class SignedOut extends Error {}
+
+async function freshTokens(tokens: GoogleTokens): Promise<GoogleTokens> {
+  const next = await refreshed(tokens).catch(() => null);
+  if (!next) {
+    await clearSession();
+    throw new SignedOut("Your Google sign-in expired. Sign in again.");
+  }
+  if (next !== tokens) await writeSession(next);
+  return next;
 }
 
 let queue: Promise<unknown> = Promise.resolve();
@@ -81,31 +97,36 @@ function applyApproval(event: PricedEvent, approval: ApprovalStatus): PricedEven
   return { ...event, approval };
 }
 
-async function handle(body: Record<string, unknown>): Promise<AppState> {
+async function handle(tokens: GoogleTokens, body: Record<string, unknown>): Promise<AppState> {
   const action = body.action;
-  const snapshot = await readStateSnapshot();
+  const owner = employeeFromGoogle(tokens.email, tokens.name);
+  const snapshot = await readStateSnapshot(owner);
   const state = snapshot.state;
   const persist = (next: AppState) => commitStateSnapshot(snapshot, next);
+
   if (action === "reset") {
-    const tokens = await readTokens();
-    if (!tokens) return persist(blankState());
-    return persist({ ...blankState(), connected: true, employee: employeeFromGoogle(tokens.email, tokens.name) });
+    return persist(blankState(state.employee));
   }
 
-  if (action === "signout") {
-    await clearTokens();
-    return persist(blankState());
-  }
-
-  if (action === "connect") {
-    state.connected = true;
-    return persist(state);
+  if (action === "profile") {
+    const homeCity = typeof body.homeCity === "string" ? body.homeCity.trim().slice(0, 60) : "";
+    if (!homeCity) throw new HttpError(400, "Enter the city you're based in.");
+    return persist({ ...state, employee: { ...state.employee, homeCity } });
   }
 
   if (action === "sync") {
-    const load = await loadCalendar(state.employee.homeCity);
-    const domain = load.source === "google" ? state.employee.companyDomain : demoEmployee.companyDomain;
-    const priced = await priceEvents(load.events, domain);
+    const fresh = await freshTokens(tokens);
+    let load;
+    try {
+      load = await loadCalendar(fresh.accessToken, state.employee.homeCity);
+    } catch (error) {
+      if (error instanceof CalendarError && error.status === 401) {
+        await clearSession();
+        throw new SignedOut(error.message);
+      }
+      throw error;
+    }
+    const priced = await priceEvents(load.events, state.employee.companyDomain);
     return persist({
       ...state,
       connected: true,
@@ -161,7 +182,7 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
       try { return await commitStateSnapshot(current, result.state); }
       catch (error) {
         if (!(error instanceof StateConflictError) || attempt === 4) throw error;
-        current = await readStateSnapshot();
+        current = await readStateSnapshot(owner);
       }
     }
     throw new StateConflictError();
@@ -171,7 +192,9 @@ async function handle(body: Record<string, unknown>): Promise<AppState> {
 }
 
 export async function GET() {
-  return NextResponse.json(await present(await readState()));
+  const tokens = await readSession();
+  if (!tokens) return signedOut();
+  return NextResponse.json(await present(await readState(employeeFromGoogle(tokens.email, tokens.name))));
 }
 
 export async function POST(request: Request) {
@@ -180,10 +203,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing request body." }, { status: 400 });
   }
 
+  const tokens = await readSession();
+  if (!tokens) return signedOut();
+  if (body.action === "signout") {
+    await revoke(tokens);
+    await clearSession();
+    await clearScriptTokens(tokens.email);
+    return signedOut("Signed out.");
+  }
+
   try {
-    const state = await enqueue(() => handle(body));
+    const state = await enqueue(() => handle(tokens, body));
     return NextResponse.json(await present(state));
   } catch (error) {
+    if (error instanceof SignedOut) return signedOut(error.message);
+    if (error instanceof CalendarError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     if (error instanceof ChargeConflictError || error instanceof StateConflictError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }

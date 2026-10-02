@@ -1,5 +1,3 @@
-import { accessToken, googleConfig, readTokens } from "./google";
-import { demoWindow, seedEvents } from "./seed";
 import { parseInstant } from "./time";
 import type { CalendarEvent, CalendarSource, SyncWindow } from "./types";
 
@@ -74,29 +72,16 @@ export function mapEvent(item: GoogleEvent, index: number, homeCity: string): Ca
   };
 }
 
-function sample(note: string | null): CalendarLoad {
-  return { events: seedEvents(), source: "sample", note, window: demoWindow };
+export class CalendarError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }
 
-async function googleToken(): Promise<string | null> {
-  if (await readTokens()) return accessToken(googleConfig());
-  if (process.env.CALENDAR_SOURCE === "google" && process.env.GOOGLE_ACCESS_TOKEN) {
-    return process.env.GOOGLE_ACCESS_TOKEN;
-  }
-  return null;
-}
-
-export async function loadCalendar(homeCity: string): Promise<CalendarLoad> {
-  let token: string | null;
-  try {
-    token = await googleToken();
-  } catch {
-    return sample("Google sign-in expired. Sign in again to sync your calendar. Showing the sample week.");
-  }
-  if (!token) {
-    return sample((await readTokens()) ? "Google sign-in expired. Sign in again to sync your calendar. Showing the sample week." : null);
-  }
-
+export async function loadCalendar(token: string, homeCity: string): Promise<CalendarLoad> {
   const now = new Date();
   const later = new Date(now.getTime() + 7 * DAY_MS);
   const url = new URL(EVENTS_URL);
@@ -106,31 +91,28 @@ export async function loadCalendar(homeCity: string): Promise<CalendarLoad> {
   url.searchParams.set("orderBy", "startTime");
   url.searchParams.set("maxResults", "50");
 
+  let response: Response;
   try {
-    const response = await fetch(url, {
+    response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(10_000),
     });
-    if (response.status === 401 || response.status === 403) {
-      return sample("Google rejected the calendar request. Sign out and sign in again. Showing the sample week.");
-    }
-    if (!response.ok) {
-      return sample(`Google Calendar returned ${response.status}. Showing the sample week.`);
-    }
-    const body = (await response.json()) as { items?: GoogleEvent[] };
-    const events = (body.items ?? [])
-      .map((item, index) => mapEvent(item, index, homeCity))
-      .filter((event): event is CalendarEvent => event !== null);
-    if (events.length === 0) {
-      return sample("Your calendar has no events in the next 7 days. Showing the sample week.");
-    }
-    return {
-      events,
-      source: "google",
-      note: null,
-      window: { label: "Next 7 days", start: now.toISOString(), end: later.toISOString() },
-    };
   } catch {
-    return sample("Couldn't reach Google Calendar. Showing the sample week.");
+    throw new CalendarError(502, "Couldn't reach Google Calendar. Try again in a moment.");
   }
+  if (response.status === 401 || response.status === 403) {
+    throw new CalendarError(401, "Google rejected the calendar request. Sign out and sign in again.");
+  }
+  if (!response.ok) throw new CalendarError(502, `Google Calendar returned ${response.status}. Try again in a moment.`);
+
+  const body = (await response.json()) as { items?: GoogleEvent[] };
+  const events = (body.items ?? [])
+    .map((item, index) => mapEvent(item, index, homeCity))
+    .filter((event): event is CalendarEvent => event !== null);
+  return {
+    events,
+    source: "google",
+    note: events.length ? null : "Your calendar has no events in the next 7 days.",
+    window: { label: "Next 7 days", start: now.toISOString(), end: later.toISOString() },
+  };
 }

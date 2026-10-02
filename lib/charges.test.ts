@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import { applyStoredCharge, chargeFingerprint, ChargeConflictError } from "./charges";
 import { createLimit } from "./ramp";
 import { reconcileEvents } from "./reconcile";
+import { seedEmployee } from "./seed";
 import { blankState, readState, writeState } from "./store";
 import { commitStateSnapshot, readStateSnapshot, StateConflictError } from "./store";
 import { compareAndSetJson, readJsonSnapshot } from "./kv";
@@ -20,7 +21,7 @@ function fixture(): AppState {
     approval: "approved", limit: null,
   };
   event.limit = createLimit(event);
-  return { ...blankState(), synced: true, events: [event] };
+  return { ...blankState(seedEmployee), synced: true, events: [event] };
 }
 const input = { amount: 10, time, merchant: "Cafe", eventId: "lunch", requestId: "charge-1" };
 
@@ -73,7 +74,7 @@ describe("durable charge request idempotency", () => {
       state = { ...state, events: reconcileEvents(state.events, []) };
       assert.equal(state.events[0].approval, "rejected");
       await writeState(state, file);
-      const restored = await readState(file);
+      const restored = await readState(seedEmployee, file);
       const replay = applyStoredCharge(restored, input);
       assert.equal(replay.replayed, true);
       assert.deepEqual(replay.charge, first.charge);
@@ -125,7 +126,7 @@ describe("whole-state compare-and-set protects independent server instances", ()
       event.limit = createLimit(event);
       await writeState(initial, file);
       // Two independent handlers computed approvals from the same $25 balance.
-      const [firstSnapshot, staleSnapshot] = await Promise.all([readStateSnapshot(file), readStateSnapshot(file)]);
+      const [firstSnapshot, staleSnapshot] = await Promise.all([readStateSnapshot(seedEmployee, file), readStateSnapshot(seedEmployee, file)]);
       const first = applyStoredCharge(firstSnapshot.state, { ...input, amount: 20 });
       const stale = applyStoredCharge(staleSnapshot.state, { ...input, amount: 20, requestId: "charge-2" });
       assert.equal(first.charge.result, "approved");
@@ -133,11 +134,11 @@ describe("whole-state compare-and-set protects independent server instances", ()
       await commitStateSnapshot(firstSnapshot, first.state, file);
       await assert.rejects(() => commitStateSnapshot(staleSnapshot, stale.state, file), StateConflictError);
       // The losing handler must read and recompute, not resend its stale result.
-      const fresh = await readStateSnapshot(file);
+      const fresh = await readStateSnapshot(seedEmployee, file);
       const retry = applyStoredCharge(fresh.state, { ...input, amount: 20, requestId: "charge-2" });
       assert.equal(retry.charge.result, "declined");
       await commitStateSnapshot(fresh, retry.state, file);
-      const saved = await readState(file);
+      const saved = await readState(seedEmployee, file);
       assert.equal(saved.events[0].limit?.spent, 20);
       assert.equal(Object.keys(saved.chargeRequests ?? {}).length, 2);
       assert.equal(saved.chargeRequests?.["charge-1"].charge.result, "approved");
@@ -150,17 +151,17 @@ describe("whole-state compare-and-set protects independent server instances", ()
     const file = path.join(directory, "state.json");
     try {
       await writeState(fixture(), file);
-      const [firstSnapshot, staleSnapshot] = await Promise.all([readStateSnapshot(file), readStateSnapshot(file)]);
+      const [firstSnapshot, staleSnapshot] = await Promise.all([readStateSnapshot(seedEmployee, file), readStateSnapshot(seedEmployee, file)]);
       const first = applyStoredCharge(firstSnapshot.state, input);
       const stale = applyStoredCharge(staleSnapshot.state, input);
       await commitStateSnapshot(firstSnapshot, first.state, file);
       await assert.rejects(() => commitStateSnapshot(staleSnapshot, stale.state, file), StateConflictError);
-      const fresh = await readStateSnapshot(file);
+      const fresh = await readStateSnapshot(seedEmployee, file);
       const retry = applyStoredCharge(fresh.state, input);
       assert.equal(retry.replayed, true);
       assert.deepEqual(retry.charge, first.charge);
       await commitStateSnapshot(fresh, retry.state, file);
-      const saved = await readState(file);
+      const saved = await readState(seedEmployee, file);
       assert.equal(saved.events[0].limit?.spent, 10);
       assert.equal(saved.charges.length, 1);
       assert.equal(Object.keys(saved.chargeRequests ?? {}).length, 1);
@@ -172,14 +173,14 @@ describe("whole-state compare-and-set protects independent server instances", ()
     const file = path.join(directory, "state.json");
     try {
       await writeState(fixture(), file);
-      const stale = await readStateSnapshot(file);
-      const chargeSnapshot = await readStateSnapshot(file);
+      const stale = await readStateSnapshot(seedEmployee, file);
+      const chargeSnapshot = await readStateSnapshot(seedEmployee, file);
       await commitStateSnapshot(chargeSnapshot, applyStoredCharge(chargeSnapshot.state, input).state, file);
       const review = { ...stale.state, events: stale.state.events.map((event) => ({ ...event, approval: "rejected" as const })) };
       const sync = { ...stale.state, events: reconcileEvents(stale.state.events, []) };
       await assert.rejects(() => commitStateSnapshot(stale, review, file), StateConflictError);
       await assert.rejects(() => commitStateSnapshot(stale, sync, file), StateConflictError);
-      assert.equal((await readState(file)).events[0].limit?.spent, 10);
+      assert.equal((await readState(seedEmployee, file)).events[0].limit?.spent, 10);
     } finally { rmSync(directory, { recursive: true, force: true }); }
   });
 
