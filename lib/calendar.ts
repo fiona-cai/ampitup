@@ -100,8 +100,31 @@ export async function loadCalendar(token: string, homeCity: string): Promise<Cal
   } catch {
     throw new CalendarError(502, "Couldn't reach Google Calendar. Try again in a moment.");
   }
-  if (response.status === 401 || response.status === 403) {
-    throw new CalendarError(401, "Google rejected the calendar request. Sign out and sign in again.");
+  if (response.status === 401) {
+    throw new CalendarError(401, "Your Google sign-in expired. Sign in again.");
+  }
+  if (response.status === 403) {
+    const failure = (await response.json().catch(() => null)) as
+      | { error?: { message?: string; errors?: { reason?: string }[]; details?: { reason?: string }[] } }
+      | null;
+    const reasons = [
+      ...(failure?.error?.errors ?? []).map((item) => item.reason),
+      ...(failure?.error?.details ?? []).map((item) => item.reason),
+    ];
+    console.error("Google Calendar 403:", failure?.error?.message ?? "no message", reasons.join(","));
+    if (reasons.some((reason) => reason === "accessNotConfigured" || reason === "SERVICE_DISABLED")) {
+      throw new CalendarError(
+        403,
+        "The Google Calendar API isn't enabled for this app's Google Cloud project. Enable it under APIs & Services → Library, wait a minute, then refresh.",
+      );
+    }
+    if (reasons.some((reason) => reason === "insufficientPermissions" || reason === "ACCESS_TOKEN_SCOPE_INSUFFICIENT")) {
+      throw new CalendarError(
+        403,
+        "Allot wasn't given access to your calendar. Use Switch account on the Calendar sync page and tick the calendar permission.",
+      );
+    }
+    throw new CalendarError(403, `Google Calendar refused the request: ${failure?.error?.message ?? "permission denied"}.`);
   }
   if (!response.ok) throw new CalendarError(502, `Google Calendar returned ${response.status}. Try again in a moment.`);
 
