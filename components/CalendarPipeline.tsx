@@ -152,7 +152,7 @@ export default function CalendarPipeline({ state, busy, send, onOpen, onAnnounce
       return <button key={gate.id} className={`funding-bin bin-${gate.id}${filter === gate.id ? " selected" : ""}`} disabled={!sorted} aria-pressed={filter === gate.id} onClick={() => setFilter(filter === gate.id ? "all" : gate.id)}>
         <div><RampIcon name={gate.icon} size={17} /><span>{gate.label}</span><RampIcon name="arrow" size={15} /></div>
         <strong>{shown.size ? matching.length : "—"}</strong>
-        <span className="bin-caption">{phase === "ready" && gate.id !== "no_budget" ? `${formatMoney(total)} ${gate.id === "needs_review" ? "proposed · check before approving" : "proposed"}` : gate.id === "no_budget" ? "Skips pricing" : gate.id === "needs_budget" ? "Gets a budget" : "Low confidence or capped by policy"}</span>
+        <span className="bin-caption">{phase === "ready" && gate.id !== "no_budget" ? `${formatMoney(total)} ${gate.id === "needs_review" ? "proposed · check before approving" : "proposed"}` : gate.id === "no_budget" ? "Skips pricing" : gate.id === "needs_budget" ? "Gets a budget" : "Unclear, inferred, or capped by policy"}</span>
       </button>;
     })}</nav>
     <div className="funding-table-toolbar">

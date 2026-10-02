@@ -36,6 +36,8 @@ test("pipeline bins separate skipped, confident, and doubtful budgets", () => {
   assert.equal(pipelineGate(event({ jev: { ...event().jev, needsBudget: false } })), "no_budget");
   assert.equal(pipelineGate(event({ jev: { ...event().jev, confidence: "low" } })), "needs_review");
   assert.equal(pipelineGate(event({ budget: { ...event().budget!, clamped: true } })), "needs_review");
+  assert.equal(pipelineGate(event({ jev: { ...event().jev, rule: "classifier" } })), "needs_review");
+  assert.equal(pipelineGate(event({ event: { ...event().event, location: "" } })), "needs_review");
 });
 
 test("tab, category, confidence and case-insensitive text filters intersect without mutating input", () => {

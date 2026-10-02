@@ -6,10 +6,10 @@ import type { CalendarEvent, JevDecision, SpendCategory } from "./types";
  * Jev decides whether an event needs company money. It does not pick the amount.
  *
  * Clear cases are rules and return immediately: already paid, focus time,
- * internal meetings, transport, and anything that says it is a meal.
+ * internal meetings without a venue, transport, and meals that name a place.
  * Whatever is left is scored. External people, a meal-time start, and a real
- * place push toward a budget. A vague title ("catch up") forces low confidence
- * and the standard per diem, which a manager can edit.
+ * place push toward a budget. Anything inferred, vague, or missing a place
+ * stays low confidence so a person can review it.
  */
 
 const ALREADY_PAID =
@@ -19,8 +19,11 @@ const INTERNAL_MEETING =
   /\b(standup|stand-up|retro|retrospective|1:1|1-1|one-on-one|sync|planning|all-hands|all hands|sprint review)\b/i;
 const TRANSPORT = /\b(uber|lyft|taxi|cab|rideshare|ride share)\b/i;
 const MEAL = /\b(breakfast|brunch|lunch|dinner|supper|coffee|tea|drinks)\b/i;
-const VAGUE = /\b(catch[\s-]?up|chat|connect|tbd)\b/i;
+const GENERIC_MEAL = /^(solo |team )?(breakfast|brunch|lunch|dinner|supper|coffee|tea|drinks)$/i;
+const VAGUE =
+  /\b(catch[\s-]?up|chat|connect|tbd|follow[\s-]?up|check[\s-]?in|intro|hangout|hang out|meetup|meet[\s-]?up|social|networking|offsite|onsite|visit|walk|office hours|quick|informal)\b/i;
 const VIRTUAL = /zoom|google meet|meet\.google|teams|virtual|remote|phone/i;
+const OFFICE = /\b(office|hq|headquarters|\broom\b|conference room|floor|building)\b/i;
 
 export const RULE_LABELS: Record<string, string> = {
   already_paid: "Already paid",
@@ -44,6 +47,19 @@ function hasPlace(event: CalendarEvent): boolean {
   const location = event.location.trim();
   if (!location) return false;
   return !VIRTUAL.test(location);
+}
+
+function hasVenue(event: CalendarEvent): boolean {
+  return hasPlace(event) && !OFFICE.test(event.location);
+}
+
+function mealUnclear(event: CalendarEvent, text: string): string[] {
+  const flags: string[] = [];
+  if (!hasPlace(event)) flags.push("no place");
+  if (GENERIC_MEAL.test(event.title.trim())) flags.push("generic title");
+  if (event.attendees.length === 0) flags.push("no attendees");
+  if (VAGUE.test(text)) flags.push("vague title");
+  return flags;
 }
 
 function decide(
@@ -83,7 +99,7 @@ export function jevGate(
     ]);
   }
 
-  if (external.length === 0 && INTERNAL_MEETING.test(text)) {
+  if (external.length === 0 && INTERNAL_MEETING.test(text) && !hasVenue(event)) {
     return decide(false, "Internal, no spend expected", "high", null, "internal_meeting", [
       "Internal meeting",
     ]);
@@ -98,24 +114,38 @@ export function jevGate(
   if (MEAL.test(text)) {
     const coffeeOnly =
       /\b(coffee|tea)\b/i.test(text) && !/\b(breakfast|brunch|lunch|dinner|supper|drinks)\b/i.test(text);
+    const unclear = mealUnclear(event, text);
+    const confidence = unclear.length ? "low" : "high";
     if (external.length > 0) {
       return decide(
         true,
-        coffeeOnly ? "Coffee with a guest needs a budget" : "Client meal, a budget is expected",
-        "high",
+        coffeeOnly
+          ? unclear.length
+            ? "Coffee with a guest, but the details are thin"
+            : "Coffee with a guest needs a budget"
+          : unclear.length
+            ? "Looks like a client meal, but the details are thin"
+            : "Client meal, a budget is expected",
+        confidence,
         coffeeOnly ? "client_coffee" : "client_meal",
         coffeeOnly ? "client_coffee" : "client_meal",
-        [`${external.length} external`, coffeeOnly ? "coffee" : "meal"],
+        [`${external.length} external`, coffeeOnly ? "coffee" : "meal", ...unclear],
       );
     }
     const people = Math.max(1, event.attendees.length);
     return decide(
       true,
-      people === 1 ? "Solo meal, a budget is expected" : "Team meal, a budget is expected",
-      "high",
+      people === 1
+        ? unclear.length
+          ? "Looks like a solo meal, but the details are thin"
+          : "Solo meal, a budget is expected"
+        : unclear.length
+          ? "Looks like a team meal, but the details are thin"
+          : "Team meal, a budget is expected",
+      confidence,
       "meal",
       people === 1 ? "solo_meal" : "team_meal",
-      [people === 1 ? "Just the employee" : `${people} internal attendees`],
+      [people === 1 ? "Just the employee" : `${people} internal attendees`, ...unclear],
     );
   }
 
@@ -148,8 +178,8 @@ export function jevGate(
   if (external.length > 0 && slot && hasPlace(event) && score >= 3) {
     return decide(
       true,
-      "Looks like a client meal from the time and place",
-      "high",
+      "Looks like a client meal from the time and place. Review before funding.",
+      "low",
       "client_meal",
       "classifier",
       signals,
@@ -162,6 +192,28 @@ export function jevGate(
       "Meal-time meeting with a guest, defaulting to the standard per diem",
       "low",
       "default_per_diem",
+      "classifier",
+      signals,
+    );
+  }
+
+  if (external.length > 0 && hasVenue(event)) {
+    return decide(
+      true,
+      "Client meeting at a venue, spend is unclear",
+      "low",
+      "default_per_diem",
+      "classifier",
+      signals,
+    );
+  }
+
+  if (hasVenue(event)) {
+    return decide(
+      true,
+      "Meeting at a venue, spend is unclear",
+      "low",
+      slot ? "meal" : "default_per_diem",
       "classifier",
       signals,
     );

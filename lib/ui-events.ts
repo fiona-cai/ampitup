@@ -41,7 +41,12 @@ export type PipelineGate = "no_budget" | "needs_budget" | "needs_review";
 /** Groups events into the funding pipeline's three bins. */
 export function pipelineGate(item: PricedEvent): PipelineGate {
   if (item.archived || !item.jev.needsBudget || !item.budget) return "no_budget";
-  return item.jev.confidence === "low" || item.budget.clamped ? "needs_review" : "needs_budget";
+  if (item.jev.confidence === "low" || item.budget.clamped) return "needs_review";
+  if (item.jev.category === "default_per_diem" || item.jev.rule === "classifier" || item.jev.rule === "vague_title") {
+    return "needs_review";
+  }
+  if (!item.event.location.trim()) return "needs_review";
+  return "needs_budget";
 }
 
 /** Charges are matched by stable event identity; never by a coincidentally equal title. */

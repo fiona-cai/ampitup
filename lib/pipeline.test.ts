@@ -72,13 +72,49 @@ describe("Jev", () => {
     });
     assert.equal(decision.rule, "classifier");
     assert.equal(decision.category, "client_meal");
-    assert.equal(decision.confidence, "high");
+    assert.equal(decision.confidence, "low");
+  });
+
+  it("marks thin or inferred spend as low confidence", () => {
+    const breakfast = jevGate(byId(events, "breakfast"));
+    assert.equal(breakfast.needsBudget, true);
+    assert.equal(breakfast.confidence, "low");
+
+    const zoomLunch = jevGate({
+      id: "zoom-lunch",
+      title: "Lunch with Elena",
+      description: "",
+      location: "Zoom",
+      start: "2026-10-06T12:00:00-04:00",
+      end: "2026-10-06T12:45:00-04:00",
+      city: "New York",
+      attendees: [
+        { name: "Maya Chen", email: "maya.chen@northwind.co" },
+        { name: "Elena Voss", email: "elena.voss@acme.com" },
+      ],
+    });
+    assert.equal(zoomLunch.needsBudget, true);
+    assert.equal(zoomLunch.confidence, "low");
+
+    const cafeSync = jevGate({
+      id: "cafe-sync",
+      title: "1:1",
+      description: "",
+      location: "Blue Bottle, Flatiron",
+      start: "2026-10-06T10:00:00-04:00",
+      end: "2026-10-06T10:30:00-04:00",
+      city: "New York",
+      attendees: [{ name: "Maya Chen", email: "maya.chen@northwind.co" }],
+    });
+    assert.equal(cafeSync.needsBudget, true);
+    assert.equal(cafeSync.confidence, "low");
   });
 
   it("does not budget an internal catch up or a mid-afternoon video call", () => {
     const internal = jevGate({
       ...byId(events, "catch-up"),
       id: "internal-catch",
+      location: "Zoom",
       attendees: [{ name: "Maya Chen", email: "maya.chen@northwind.co" }],
     });
     assert.equal(internal.needsBudget, false);
