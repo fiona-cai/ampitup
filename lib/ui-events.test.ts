@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createLimit } from "./ramp";
-import { avatarFor, eventCounts, eventStatus, eventWindow, filterEvents, latestChargeFor } from "./ui-events";
+import { avatarFor, eventCounts, eventStatus, eventWindow, filterEvents, latestChargeFor, pipelineGate } from "./ui-events";
 import { formatTime } from "./time";
 import type { ChargeAttempt, PricedEvent } from "./types";
 
@@ -27,6 +27,15 @@ test("each event belongs to exactly one status group and overview counts all eve
   assert.equal(eventStatus(approvedWithoutLimit), "review");
   assert.deepEqual(eventCounts([pending, live, rejected, noBudget, approvedWithoutLimit]), { overview: 5, review: 2, live: 1, none: 2 });
   assert.deepEqual(eventCounts([]), { overview: 0, review: 0, live: 0, none: 0 });
+});
+
+test("pipeline bins separate skipped, confident, and doubtful budgets", () => {
+  assert.equal(pipelineGate(event()), "needs_budget");
+  assert.equal(pipelineGate(event({ budget: null })), "no_budget");
+  assert.equal(pipelineGate(event({ archived: true })), "no_budget");
+  assert.equal(pipelineGate(event({ jev: { ...event().jev, needsBudget: false } })), "no_budget");
+  assert.equal(pipelineGate(event({ jev: { ...event().jev, confidence: "low" } })), "needs_review");
+  assert.equal(pipelineGate(event({ budget: { ...event().budget!, clamped: true } })), "needs_review");
 });
 
 test("tab, category, confidence and case-insensitive text filters intersect without mutating input", () => {

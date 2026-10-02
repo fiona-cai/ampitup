@@ -6,6 +6,7 @@ import RampIcon from "./RampIcon";
 import EventDetails from "./EventDetails";
 import DemoCardPanel from "./DemoCardPanel";
 import AppDialog from "./AppDialog";
+import CalendarPipeline from "./CalendarPipeline";
 import NotionContextPanel from "./NotionContextPanel";
 import { policy } from "@/lib/policy";
 import { dayKey, formatDayKey, formatMoney, formatTime, formatRange } from "@/lib/time";
@@ -24,6 +25,7 @@ const TABS: { id: BudgetTab; label: string }[] = [
 export default function AllotApp() {
   const [state, setState] = useState<AppResponse | null>(null);
   const [signedOut, setSignedOut] = useState<SignedOutResponse | null>(null);
+  const [workspaceView, setWorkspaceView] = useState<"funding" | "cards">("funding");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<BudgetTab>("overview");
@@ -93,7 +95,7 @@ export default function AllotApp() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault(); setPage("context"); searchRef.current?.focus();
+        event.preventDefault(); setPage("context"); setWorkspaceView("cards"); searchRef.current?.focus();
       }
       if (event.key === "Escape") setMenu(null);
     };
@@ -151,12 +153,13 @@ export default function AllotApp() {
     <main className="app-shell">
       <a className="skip-link" href="#event-workspace">Skip to events</a>
       <RampSidebar reviewCount={counts.review} selected={page} onNavigate={navigate}
-        onSearch={() => { navigate("context"); searchRef.current?.focus(); }} onSection={setInfo} />
+        onSearch={() => { navigate("context"); setWorkspaceView("cards"); searchRef.current?.focus(); }} onSection={setInfo} />
       <section className="workspace" id="event-workspace" aria-busy={busy}>
         <header className="page-header">
           <div className="title-row">
             <h1 className="page-title">{page === "policy" ? "Spending policy" : page === "sources" ? "Calendar sync" : "Your business events"}</h1>
             {page === "context" && state && <span className="title-count">Google Calendar · {formatRange(state.window.start, state.window.end)} · {events.length} event{events.length === 1 ? "" : "s"}</span>}
+            {page === "context" && state && <div className="funding-workspace-switch" aria-label="Allot workspace"><button aria-pressed={workspaceView === "funding"} onClick={() => setWorkspaceView("funding")}>Funding pipeline</button><button aria-pressed={workspaceView === "cards"} onClick={() => setWorkspaceView("cards")}>Cards & calendar</button></div>}
           </div>
         </header>
         {toast && <div className="toast" role="status"><span>{toast}</span>
@@ -166,7 +169,7 @@ export default function AllotApp() {
         {error && <div className="error-banner" role="alert"><span>{error}</span><button className="undo" onClick={() => void load()}>Retry</button></div>}
         {signedOut ? <SignInView info={signedOut} /> : page === "policy" ? <PolicyView /> : page === "sources" ? <CalendarView state={state} busy={busy} onSync={sync}
           onHomeCity={async (homeCity) => { if (await send({ action: "profile", homeCity }) && await send({ action: "sync" })) announce(`Home city set to ${homeCity}.`); }}
-          onSignOut={async () => { await send({ action: "signout" }); setSelected(new Set()); setDetailId(null); setPage("context"); autoSynced.current = false; announce("Signed out of Google."); }} /> : <>
+          onSignOut={async () => { await send({ action: "signout" }); setSelected(new Set()); setDetailId(null); setPage("context"); autoSynced.current = false; announce("Signed out of Google."); }} /> : workspaceView === "funding" && state ? <CalendarPipeline state={state} busy={busy} send={send} onOpen={setDetailId} onAnnounce={announce} /> : <>
           <div className="tabs" role="tablist" aria-label="Event budget status">
             {TABS.map(({ id, label }) => <button key={id} role="tab" aria-selected={tab === id} aria-controls="events-panel"
               className={`tab${tab === id ? " active" : ""}`} onClick={() => { setTab(id); setMenu(null); }}>
