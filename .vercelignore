@@ -1,0 +1,14 @@
+.git
+.next
+node_modules
+.env*
+.vercel
+laya
+UI FOLDER
+data/*state*.json
+data/google.json
+data/jev-memory.json
+data/harness
+protocol/.venv
+__pycache__
+*.tsbuildinfo

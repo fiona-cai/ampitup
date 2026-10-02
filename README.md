@@ -43,6 +43,8 @@ npm run demo
 
 Open [http://localhost:3000](http://localhost:3000). Demo mode loads 16 synthetic events automatically, uses policy pricing, and supports the animated sorting, approvals, and card simulator. The UI labels this as sample data. State stays in the ignored local `data/demo-state.json`, separate from Google accounts and Redis. `npm run dev` keeps the normal Google sign-in flow. The separate `/harness` uses explicitly labeled verified model recordings in demo mode; live provider calls are disabled there.
 
+For a separate Vercel demo deployment, set `ALLOT_DEMO_MODE=1` on the demo project. It requires no Google or model credentials. Sample approvals and card attempts use Vercel's temporary storage and may reset when the instance restarts.
+
 Requires Node 20.9 or later. The homepage runs the contextual Laya + Luna demo on Apple Silicon.
 
 ```bash

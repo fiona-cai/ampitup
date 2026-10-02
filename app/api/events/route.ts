@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
+import os from "node:os";
 import { demoMode } from "@/lib/demo-mode";
 import { seedEmployee, seedEvents, seedWindow } from "@/lib/seed";
 import { CalendarError, loadCalendar } from "@/lib/calendar";
@@ -36,7 +37,7 @@ async function present(state: AppState): Promise<AppResponse> {
     ...visible,
     summary: state.synced ? summarize(state.events, state.employee.homeCity) : null,
     googleConfigured: !demoMode() && googleConfig() !== null,
-    storage: demoMode() ? "file" : storageKind(),
+    storage: demoMode() ? (process.env.VERCEL ? "ephemeral" : "file") : storageKind(),
   };
 }
 
@@ -100,7 +101,12 @@ function applyApproval(event: PricedEvent, approval: ApprovalStatus): PricedEven
   return { ...event, approval };
 }
 
-function demoFile() { return demoMode() ? path.join(process.cwd(), "data/demo-state.json") : undefined; }
+function demoFile() {
+  if (!demoMode()) return undefined;
+  return process.env.VERCEL
+    ? path.join(os.tmpdir(), "allot-demo", "demo-state.json")
+    : path.join(process.cwd(), "data/demo-state.json");
+}
 
 async function handle(tokens: GoogleTokens | null, body: Record<string, unknown>): Promise<AppState> {
   const action = body.action;
