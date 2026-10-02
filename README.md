@@ -34,6 +34,15 @@ The context needed to set the right limit is already on the calendar: who is att
 
 ## Quick start
 
+For the demo branch, run without Google sign-in or provider credentials:
+
+```bash
+npm ci
+npm run demo
+```
+
+Open [http://localhost:3000](http://localhost:3000). Demo mode loads 16 synthetic events automatically, uses policy pricing, and supports the animated sorting, approvals, and card simulator. The UI labels this as sample data. State stays in the ignored local `data/demo-state.json`, separate from Google accounts and Redis. `npm run dev` keeps the normal Google sign-in flow. The separate `/harness` uses explicitly labeled verified model recordings in demo mode; live provider calls are disabled there.
+
 Requires Node 20.9 or later. The homepage runs the contextual Laya + Luna demo on Apple Silicon.
 
 ```bash

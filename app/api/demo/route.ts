@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
+import { demoMode } from "@/lib/demo-mode";
 import path from "node:path";
 import month from "@/data/demo/month.json";
 import samples from "@/data/demo/samples.json";
@@ -21,7 +22,7 @@ function enqueue<T>(job: () => Promise<T>): Promise<T> {
   return pending;
 }
 
-function liveAvailable() { return !process.env.VERCEL && fs.existsSync(path.join(process.cwd(), "laya/.venv/bin/python")) && fs.existsSync(path.join(process.cwd(), "laya/models/english/model.safetensors")); }
+function liveAvailable() { return !demoMode() && !process.env.VERCEL && fs.existsSync(path.join(process.cwd(), "laya/.venv/bin/python")) && fs.existsSync(path.join(process.cwd(), "laya/models/english/model.safetensors")); }
 
 export async function GET(request: Request) {
   try {

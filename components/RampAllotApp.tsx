@@ -158,7 +158,7 @@ export default function AllotApp() {
         <header className="page-header">
           <div className="title-row">
             <h1 className="page-title">{page === "policy" ? "Spending policy" : page === "sources" ? "Calendar sync" : "Your business events"}</h1>
-            {page === "context" && state && <span className="title-count">Google Calendar · {formatRange(state.window.start, state.window.end)} · {events.length} event{events.length === 1 ? "" : "s"}</span>}
+            {page === "context" && state && <span className="title-count">{state.source === "sample" ? "Sample calendar" : "Google Calendar"} · {formatRange(state.window.start, state.window.end)} · {events.length} event{events.length === 1 ? "" : "s"}</span>}
             {page === "context" && state && <div className="funding-workspace-switch" aria-label="Allot workspace"><button aria-pressed={workspaceView === "funding"} onClick={() => setWorkspaceView("funding")}>Funding pipeline</button><button aria-pressed={workspaceView === "cards"} onClick={() => setWorkspaceView("cards")}>Cards & calendar</button></div>}
           </div>
         </header>
@@ -181,7 +181,7 @@ export default function AllotApp() {
               <input ref={searchRef} aria-label="Search events" placeholder="Search events..." value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
             <div className="control-row">
-              <div className="filter-pills"><div className="locked-filter"><RampIcon name="calendar" size={13} /> Calendar <span>Google · {state?.employee.email ?? "Loading"}</span></div>
+              <div className="filter-pills"><div className="locked-filter"><RampIcon name="calendar" size={13} /> Calendar <span>{state?.source === "sample" ? "Sample" : "Google"} · {state?.employee.email ?? "Loading"}</span></div>
                 <button className="filter-button" aria-expanded={menu === "filter"} onClick={() => setMenu(menu === "filter" ? null : "filter")}><RampIcon name="plus" size={14} /> Filter</button>
               </div>
               <div className="view-actions">
@@ -286,9 +286,9 @@ function SignInView({ info }: { info: SignedOutResponse }) {
 
 function CalendarView({ state, busy, onSync, onHomeCity, onSignOut }: { state: AppResponse | null; busy: boolean; onSync: () => Promise<void>; onHomeCity: (city: string) => Promise<void>; onSignOut: () => Promise<void> }) {
   const [city, setCity] = useState(state?.employee.homeCity ?? "");
-  return <div className="policy-view"><h2>Google Calendar</h2><p>{state?.employee.name ?? "Loading…"} · {state?.employee.email}</p>
+  return <div className="policy-view"><h2>{state?.source === "sample" ? "Sample calendar" : "Google Calendar"}</h2><p>{state?.employee.name ?? "Loading…"} · {state?.employee.email}</p>
     <p>{state?.synced ? `${state.events.length} event${state.events.length === 1 ? "" : "s"} loaded for ${formatRange(state.window.start, state.window.end)}.` : "Your calendar hasn't been synced yet."}</p>
-    <div className="form-actions"><button className="primary-button" disabled={busy} onClick={() => void onSync()}><RampIcon name="refresh" />{busy ? "Refreshing…" : "Refresh events"}</button><a className="undo" href="/api/auth/google">Switch account</a><button className="undo" disabled={busy} onClick={() => void onSignOut()}>Sign out</button></div>
+    <div className="form-actions"><button className="primary-button" disabled={busy} onClick={() => void onSync()}><RampIcon name="refresh" />{busy ? "Refreshing…" : "Refresh events"}</button>{state?.source !== "sample" && <><a className="undo" href="/api/auth/google">Switch account</a><button className="undo" disabled={busy} onClick={() => void onSignOut()}>Sign out</button></>}</div>
     {state?.sourceNote && <p role="status">{state.sourceNote}</p>}
     <h2>Home city</h2><p>Days spent entirely outside your home city count as travel days and get a per diem.</p>
     <form className="form-actions" onSubmit={(event) => { event.preventDefault(); if (city.trim()) void onHomeCity(city.trim()); }}>

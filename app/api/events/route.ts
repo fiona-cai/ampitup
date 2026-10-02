@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import path from "node:path";
+import { demoMode } from "@/lib/demo-mode";
+import { seedEmployee, seedEvents, seedWindow } from "@/lib/seed";
 import { CalendarError, loadCalendar } from "@/lib/calendar";
 import { clearScriptTokens, googleConfig, refreshed, revoke, type GoogleTokens } from "@/lib/google";
 import { storageKind } from "@/lib/kv";
@@ -32,8 +35,8 @@ async function present(state: AppState): Promise<AppResponse> {
   return {
     ...visible,
     summary: state.synced ? summarize(state.events, state.employee.homeCity) : null,
-    googleConfigured: googleConfig() !== null,
-    storage: storageKind(),
+    googleConfigured: !demoMode() && googleConfig() !== null,
+    storage: demoMode() ? "file" : storageKind(),
   };
 }
 
@@ -97,15 +100,18 @@ function applyApproval(event: PricedEvent, approval: ApprovalStatus): PricedEven
   return { ...event, approval };
 }
 
-async function handle(tokens: GoogleTokens, body: Record<string, unknown>): Promise<AppState> {
+function demoFile() { return demoMode() ? path.join(process.cwd(), "data/demo-state.json") : undefined; }
+
+async function handle(tokens: GoogleTokens | null, body: Record<string, unknown>): Promise<AppState> {
   const action = body.action;
-  const owner = employeeFromGoogle(tokens.email, tokens.name);
-  const snapshot = await readStateSnapshot(owner);
+  const owner = demoMode() ? seedEmployee : employeeFromGoogle(tokens!.email, tokens!.name);
+  const snapshot = await readStateSnapshot(owner, demoFile());
   const state = snapshot.state;
-  const persist = (next: AppState) => commitStateSnapshot(snapshot, next);
+  const persist = (next: AppState) => commitStateSnapshot(snapshot, next, demoFile());
 
   if (action === "reset") {
-    return persist(blankState(state.employee));
+    const blank = blankState(state.employee);
+    return persist(demoMode() ? { ...blank, source: "sample", window: seedWindow } : blank);
   }
 
   if (action === "profile") {
@@ -115,10 +121,12 @@ async function handle(tokens: GoogleTokens, body: Record<string, unknown>): Prom
   }
 
   if (action === "sync") {
-    const fresh = await freshTokens(tokens);
+    const fresh = demoMode() ? null : await freshTokens(tokens!);
     let load;
     try {
-      load = await loadCalendar(fresh.accessToken, state.employee.homeCity);
+      load = demoMode()
+        ? { events: seedEvents(), source: "sample" as const, window: seedWindow, note: "Demo mode · synthetic events and simulated card limits." }
+        : await loadCalendar(fresh!.accessToken, state.employee.homeCity);
     } catch (error) {
       if (error instanceof CalendarError && error.status === 401) {
         await clearSession();
@@ -179,10 +187,10 @@ async function handle(tokens: GoogleTokens, body: Record<string, unknown>): Prom
     let current = snapshot;
     for (let attempt = 0; attempt < 5; attempt++) {
       const result = applyStoredCharge(current.state, input);
-      try { return await commitStateSnapshot(current, result.state); }
+      try { return await commitStateSnapshot(current, result.state, demoFile()); }
       catch (error) {
         if (!(error instanceof StateConflictError) || attempt === 4) throw error;
-        current = await readStateSnapshot(owner);
+        current = await readStateSnapshot(owner, demoFile());
       }
     }
     throw new StateConflictError();
@@ -192,6 +200,13 @@ async function handle(tokens: GoogleTokens, body: Record<string, unknown>): Prom
 }
 
 export async function GET() {
+  if (demoMode()) {
+    const state = await enqueue(async () => {
+      const saved = await readState(seedEmployee, demoFile());
+      return saved.synced ? saved : handle(null, { action: "sync" });
+    });
+    return NextResponse.json(await present(state));
+  }
   const tokens = await readSession();
   if (!tokens) return signedOut();
   return NextResponse.json(await present(await readState(employeeFromGoogle(tokens.email, tokens.name))));
@@ -203,12 +218,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing request body." }, { status: 400 });
   }
 
-  const tokens = await readSession();
-  if (!tokens) return signedOut();
+  const tokens = demoMode() ? null : await readSession();
+  if (!demoMode() && !tokens) return signedOut();
   if (body.action === "signout") {
-    await revoke(tokens);
+    if (demoMode()) return NextResponse.json(await present(await enqueue(() => handle(null, { action: "sync" }))));
+    await revoke(tokens!);
     await clearSession();
-    await clearScriptTokens(tokens.email);
+    await clearScriptTokens(tokens!.email);
     return signedOut("Signed out.");
   }
 

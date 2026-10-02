@@ -43,6 +43,7 @@ export default function CalendarPipeline({ state, busy, send, onOpen, onAnnounce
   const generation = useRef(0);
   useEffect(() => () => { generation.current++; }, []);
 
+  const sourceLabel = state.source === "sample" ? "Sample calendar" : "Google Calendar";
   const events = state.events;
   const working = phase === "jev" || phase === "pricing";
   const sorted = phase !== "idle" && phase !== "jev";
@@ -68,7 +69,7 @@ export default function CalendarPipeline({ state, busy, send, onOpen, onAnnounce
 
   async function runJev() {
     const token = ++generation.current;
-    setShown(new Set()); setPriced(new Set()); setFilter("all"); setPhase("jev"); setActive("Reading your Google Calendar");
+    setShown(new Set()); setPriced(new Set()); setFilter("all"); setPhase("jev"); setActive(`Reading your ${sourceLabel.toLowerCase()}`);
     const data = await send({ action: "sync" });
     if (generation.current !== token) return;
     if (!data) { setPhase("idle"); setActive(""); return; }
@@ -94,7 +95,7 @@ export default function CalendarPipeline({ state, busy, send, onOpen, onAnnounce
     return `${item.event.title} ${item.event.location}`.toLowerCase().includes(query.toLowerCase());
   });
 
-  const headline = !state.synced ? "Reading your Google Calendar…"
+  const headline = !state.synced ? `Reading your ${sourceLabel.toLowerCase()}…`
     : !events.length ? "Nothing on your calendar this week."
     : phase === "idle" ? "Feed the week to Jev."
     : phase === "jev" ? "A little context. A lot of sorting."
@@ -103,7 +104,7 @@ export default function CalendarPipeline({ state, busy, send, onOpen, onAnnounce
     : "A budget for the moments that need it.";
   const caption = !state.synced ? "This takes a few seconds."
     : !events.length ? (state.sourceNote ?? "No events in the next 7 days.")
-    : phase === "idle" ? `${events.length} events from Google Calendar. Three categories. No blanket allowance.`
+    : phase === "idle" ? `${events.length} events from ${sourceLabel.toLowerCase()}. Three categories. No blanket allowance.`
     : phase === "jev" ? (shown.size ? `${shown.size} of ${events.length} sorted · ${active}` : active)
     : phase === "sorted" ? `${candidates.length} events need money. The rest skip pricing.`
     : phase === "pricing" ? (priced.size ? `${priced.size} of ${candidates.length} priced · ${active}` : active)
@@ -111,7 +112,7 @@ export default function CalendarPipeline({ state, busy, send, onOpen, onAnnounce
 
   return <div className="funding-workflow">
     <div className="funding-toolbar">
-      <div className="funding-source"><RampIcon name="calendar" /><span>Google Calendar · {state.employee.email}</span><span className="funding-week">{formatRange(state.window.start, state.window.end)}</span></div>
+      <div className="funding-source"><RampIcon name="calendar" /><span>{sourceLabel} · {state.employee.email}</span><span className="funding-week">{formatRange(state.window.start, state.window.end)}</span></div>
       <div className="funding-tools"><button className="icon-button" aria-label="Re-read calendar and sort again" disabled={busy || working} onClick={() => void runJev()}><RampIcon name="refresh" /></button></div>
     </div>
     <section className="funding-stage" aria-label="Jev funding pipeline">
@@ -121,7 +122,7 @@ export default function CalendarPipeline({ state, busy, send, onOpen, onAnnounce
           <RampIcon name="arrow" size={15} />
           <span className={phase === "pricing" || phase === "sorted" ? "current" : phase === "ready" ? "complete" : ""}><i>{phase === "ready" ? <RampIcon name="check" size={12} /> : "2"}</i> {pricerName} prices</span>
         </div>
-        <span className="funding-mode"><span className="live-dot" />Live · your calendar</span>
+        <span className="funding-mode"><span className="live-dot" />{state.source === "sample" ? "Demo · synthetic events" : "Live · your calendar"}</span>
       </div>
       <div className="funding-stage-body">
         <div className={`agent-scene${working || !state.synced ? " is-working" : ""}${phase === "pricing" ? " is-luna" : ""}`} aria-hidden="true">
@@ -179,6 +180,6 @@ export default function CalendarPipeline({ state, busy, send, onOpen, onAnnounce
         </tr>;
       })}{!rows.length && <tr><td colSpan={6} className="empty-state">{state.synced ? "No events in this view." : "Loading calendar…"}</td></tr>}</tbody>
     </table></div>
-    <footer className="funding-footer"><span>{rows.length} of {events.length} events · Google Calendar · Card limits are simulated</span></footer>
+    <footer className="funding-footer"><span>{rows.length} of {events.length} events · {sourceLabel} · Card limits are simulated</span></footer>
   </div>;
 }

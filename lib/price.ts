@@ -1,4 +1,5 @@
 import { isExternal } from "./attendees";
+import { demoMode } from "./demo-mode";
 import { cityRate, policy, type Policy } from "./policy";
 import { mealSlot, type MealSlot } from "./time";
 import type { BudgetQuote, CalendarEvent, JevDecision, SpendCategory } from "./types";
@@ -216,6 +217,7 @@ export async function priceEvent(
   companyDomain = policy.companyDomain,
 ): Promise<BudgetQuote> {
   const fallback = quoteFromPolicy(event, jev);
+  if (demoMode()) return fallback;
   if (!jev.category) return fallback;
   try {
     const quoted = await quoteWithClaude(event, jev, capFor(event, jev.category), companyDomain);

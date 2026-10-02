@@ -85,7 +85,7 @@ export type Employee = {
   homeCity: string;
 };
 
-export type CalendarSource = "google";
+export type CalendarSource = "google" | "sample";
 
 export type SyncWindow = {
   label: string;
